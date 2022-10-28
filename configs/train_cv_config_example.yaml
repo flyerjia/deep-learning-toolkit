@@ -1,0 +1,53 @@
+log_file: train_cv_log
+
+random_seed: 2022
+
+dataset:
+  train:
+    data_path: "data/train.txt"
+    type: json # json/text  json 是整个文件为一个json  text是每行为一个json
+    reader:
+      type: XXX_reader
+      tokenizer: XXX_tokenizer
+      vocab_path: "pretrain_model/vocab.txt"
+      padding: max_length
+      max_seq_len: 512
+    batch_size: 16
+  # 交叉验证自动划分验证集
+  test:
+    data_path: "data/test.txt"
+
+model:
+  # 模型参数可随意添加
+  type: XXX_model
+  encoder:
+    type: bert
+    config_path: "pretrain_model/config.json"
+    pretrained_model_dir: "pretrain_model"
+  weight_path: "pretrain_model/model.pth" # 若存在则加载权重    
+
+optimizer:
+  type: adamw
+  lr: 1e-4 # 任务层学习率
+  encoder_lr: 1e-5 # 嵌入层学习率
+  weight_decay: 0.01
+  lr_scheduler: linear_schedule_with_warmup
+  warmup: 0.2
+
+trainer:
+  # k_fold: 5
+  epoch: 10
+  eval_epoch: 1
+  test_epoch: 1
+  model_sort_key: F1
+  early_stopping: True
+  max_model_num: 5
+  use_gpu: True
+  gpu_id: 1
+  use_fp16: False
+  use_fgm: False
+  use_ema: False
+  output_path: "training_output"
+  save_evaluations: False # 是否保存验证集指标
+  save_checkpoints: False # 是否保存模型
+  save_predictions: False # 是否保存预测结果

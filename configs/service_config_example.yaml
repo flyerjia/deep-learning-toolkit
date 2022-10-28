@@ -1,0 +1,18 @@
+log_file: service_log
+
+random_seed: 2022
+
+dataset:
+  reader: # reader必有
+    type: XXX_reader
+    tokenizer: XXX_tokenizer
+    vocab_path: "pretrain_model/vocab.txt"
+    padding: max_length
+    max_seq_len: 512
+
+inference:
+  use_gpu: True
+  gpu_id: 1
+  inference_model: "XX_model.pth"
+
+

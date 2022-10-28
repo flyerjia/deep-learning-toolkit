@@ -1,0 +1,284 @@
+# -*- encoding: utf-8 -*-
+"""
+@File    :   common_utils.py
+@Time    :   2022/07/12 20:05:10
+@Author  :   jiangjiajia
+"""
+
+import argparse
+import json
+import logging
+import os
+import random
+import time
+
+import numpy as np
+import torch
+import torch.nn as nn
+import yaml
+from scipy.special import expit, softmax
+from torch.optim import AdamW
+from transformers import BertModel, BertTokenizer, MegatronBertModel, DebertaV2Model, ErnieModel, NezhaModel
+
+
+logger = logging.getLogger(__name__)
+
+ENCODERS = {
+    'bert': BertModel,
+    'nezha': NezhaModel,
+    'erlangshen': MegatronBertModel,
+    'deberta-v2': DebertaV2Model,
+    'ernie': ErnieModel,
+    'lstm': nn.LSTM
+}
+
+TOKENIZERS = {
+    'bert_tokenizer': BertTokenizer
+}
+
+OPTIMIZERS = {
+    'adamw': AdamW
+}
+
+
+def set_seed(seed=2022):
+    random.seed(seed)
+    np.random.seed(seed)
+    torch.manual_seed(seed)
+    torch.cuda.manual_seed(seed)
+    torch.cuda.manual_seed_all(seed)
+    torch.backends.cudnn.deterministic = True
+    torch.backends.cudnn.benchmark = False
+    os.environ['PYTHONHASHSEED'] = str(seed)
+
+
+def get_args():
+    cmd_choices = ['training', 'training_cv', 'inference', 'service']
+    parser = argparse.ArgumentParser()
+    parser.add_argument('--command', choices=cmd_choices, required=True)
+    parser.add_argument('--config', required=True)
+    args = parser.parse_args()
+    return args
+
+
+def init_logger(log_file, name='dltk'):
+    time_ = time.strftime('%Y_%m_%d_%H_%M_%S', time.localtime())
+    log_format = logging.Formatter(fmt='%(asctime)s - %(levelname)s - %(name)s - %(message)s',
+                                   datefmt='%Y/%m/%d %H:%M:%S')
+    logger = logging.getLogger(name)
+    logger.setLevel(logging.INFO)
+    console_handler = logging.StreamHandler()
+    console_handler.setFormatter(log_format)
+    logger.handlers = [console_handler]
+    file_handler = logging.FileHandler(log_file + '_' + time_ + '.log',
+                                       encoding='UTF-8')
+    file_handler.setLevel(logging.INFO)
+    file_handler.setFormatter(log_format)
+    logger.addHandler(file_handler)
+
+
+def get_device(use_gpu=False, gpu_id=0):
+    """
+    暂时只支持单卡
+    """
+    if use_gpu:
+        if not torch.cuda.is_available():
+            logger.warning('GPU not available')
+            device = torch.device('cpu')
+        else:
+            gpu_nums = torch.cuda.device_count()
+            if 0 <= gpu_id < gpu_nums:
+                logger.info('use GPU: {}'.format(str(gpu_id)))
+                device = torch.device('cuda:' + str(gpu_id))
+            else:
+                logger.info('argument gpu_id not correct')
+
+    else:
+        device = torch.device('cpu')
+    return device
+
+
+def read_json(file_path):
+    """
+    read a json from file
+
+    Args:
+        file_path (str): file path
+    """
+    if not os.path.exists(file_path):
+        logger.error('{} not exit'.format(file_path))
+        return
+    with open(file_path, 'r', encoding='utf-8') as fn:
+        data = json.load(fn)
+    return data
+
+
+def write_json(file_path, data):
+    """
+    write a json to file
+
+    Args:
+        file_path (str): file path
+        data (json): writed data
+    """
+    with open(file_path, 'w', encoding='utf-8') as fn:
+        fn.write(json.dumps(data, ensure_ascii=False, indent=2))
+
+
+def read_jsons(file_path):
+    """
+    read jsons from file. each line is a json
+
+    Args:
+        file_path (str): file path
+    """
+    if not os.path.exists(file_path):
+        logger.error('{} not exit'.format(file_path))
+        return
+    data = []
+    with open(file_path, 'r', encoding='utf-8') as fn:
+        for line in fn.readlines():
+            line = line.strip()
+            if line:
+                data.append(json.loads(line))
+    return data
+
+
+def write_jsons(file_path, data):
+    """
+    write jsons to file
+
+    Args:
+        file_path (str): file paht
+        data (list): json list
+    """
+    with open(file_path, 'w', encoding='utf-8') as fn:
+        for each_json in data:
+            fn.write(json.dumps(each_json, ensure_ascii=False) + '\n')
+
+
+def read_text(file_path):
+    """
+    read text
+
+    Args:
+        file_path (str): file path
+    """
+    if not os.path.exists(file_path):
+        logger.error('{} not exit'.format(file_path))
+        return
+    data = []
+    with open(file_path, 'r', encoding='utf-8') as fn:
+        for line in fn.readlines():
+            line = line.strip()
+            if line:
+                data.append(line)
+    return data
+
+
+def write_text(file_path, data):
+    """
+    write text
+
+    Args:
+        file_path (str): file path
+        data (list): data
+    """
+    with open(file_path, 'w', encoding='utf-8') as fn:
+        for each_text in data:
+            fn.write(each_text + '\n')
+
+
+def read_yaml(file_path):
+    """
+    read yaml file
+
+    Args:
+        file_path (str): file path
+    """
+    if not os.path.exists(file_path):
+        print('{} not exit'.format(file_path))
+        return
+    with open(file_path, 'r', encoding='utf-8') as fn:
+        data = yaml.safe_load(fn)
+    return data
+
+
+def write_yaml(file_path, data):
+    """
+    write yaml data to a file
+    """
+    with open(file_path, 'w', encoding='utf-8') as fn:
+        yaml.safe_dump(data, fn, sort_keys=False)
+
+
+def fine_grade_tokenize(raw_text, tokenizer):
+    """
+    序列标注任务 BERT 分词器可能会导致标注偏移，
+    用 char-level 来 tokenize
+    """
+    tokens = []
+
+    for _ch in raw_text:
+        if _ch in [' ', '\t', '\n']:
+            tokens.append('[BLANK]')
+        else:
+            if not len(tokenizer.tokenize(_ch)):
+                tokens.append('[UNK]')
+            else:
+                tokens.append(_ch)
+
+    return tokens
+
+
+def numpy_softmax(logits):
+    # logits = torch.from_numpy(logits)
+    # probs = torch.softmax(logits, dim=-1).numpy()
+    # return probs
+    return softmax(logits, axis=-1)
+
+
+def numpy_sigmoid(logits):
+    # logits = torch.from_numpy(logits)
+    # return torch.sigmoid(logits).numpy()
+    return expit(logits)
+
+
+def numpy_topk(matrix, K, axis=-1):
+    """
+    perform topK based on np.argsort
+    :param matrix: to be sorted
+    :param K: select and sort the top K items
+    :param axis: dimension to be sorted.
+    :return:
+    """
+    full_sort = np.argsort(matrix, axis=axis)
+    return full_sort.take(-(np.arange(K) + 1), axis=axis)
+
+
+def strQ2B(ustring):
+    """全角转半角"""
+    rstring = ""
+    for uchar in ustring:
+        inside_code = ord(uchar)
+        if inside_code == 12288:  # 全角空格直接转换
+            inside_code = 32
+        elif (inside_code >= 65281 and inside_code <= 65374):  # 全角字符（除空格）根据关系转化
+            inside_code -= 65248
+
+        rstring += chr(inside_code)
+    return rstring
+
+
+def strB2Q(ustring):
+    """半角转全角"""
+    rstring = ""
+    for uchar in ustring:
+        inside_code = ord(uchar)
+        if inside_code == 32:  # 半角空格直接转化
+            inside_code = 12288
+        elif inside_code >= 32 and inside_code <= 126:  # 半角字符（除空格）根据关系转化
+            inside_code += 65248
+
+        rstring += chr(inside_code)
+    return rstring
