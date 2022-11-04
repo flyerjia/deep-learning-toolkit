@@ -5,6 +5,7 @@
 @Author  :   jiangjiajia
 """
 
-from dltk.run import run
+from dltk.run import main
 
-run()
+if __name__ == '__main__':
+    main()

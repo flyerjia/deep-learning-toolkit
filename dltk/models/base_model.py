@@ -5,12 +5,10 @@
 @Author  :   jiangjiajia
 """
 
-import logging
-
 import torch
 import torch.nn as nn
 
-logger = logging.getLogger(__name__)
+from ..utils.common_utils import logger_output
 
 
 class BaseModel(nn.Module):

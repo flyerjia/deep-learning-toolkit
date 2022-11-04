@@ -4,13 +4,8 @@
 @Time    :   2022/07/12 20:44:12
 @Author  :   jiangjiajia
 """
-
-import logging
-
 import torch
 from torch.utils.data import Dataset
-
-logger = logging.getLogger(__name__)
 
 
 class BaseReader(Dataset):

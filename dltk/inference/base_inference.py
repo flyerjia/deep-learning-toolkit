@@ -4,26 +4,21 @@
 @Time    :   2022/08/08 19:08:52
 @Author  :   jiangjiajia
 """
-
-import logging
-
 import torch
 from torch.utils.data import DataLoader, SequentialSampler
 
-from ..utils.common_utils import get_device, write_json
-
-logger = logging.getLogger(__name__)
+from ..utils.common_utils import get_device, write_json, logger_output
 
 
 class BaseInference:
-    def __init__(self, **kwargs):
+    def __init__(self, device, **kwargs):
+        self.device = device
         self.kwargs = kwargs
-        self.device = get_device(self.kwargs['use_gpu'], self.kwargs['gpu_id'])
         try:
             self.model = torch.load(self.kwargs['inference_model'], map_location=self.device)
             self.model.eval()
         except Exception as ex:
-            logger.error("can't load model: {}".format(self.kwargs['inference_model']))
+            logger_output('error', "can't load model: {}".format(self.kwargs['inference_model']))
             raise ex
 
     def service_inference(self, dataset, example):
@@ -47,7 +42,7 @@ class BaseInference:
         return example
 
     def inference(self, dataset):
-        logger.info('start inference')
+        logger_output('info', 'start inference')
         data_sampler = SequentialSampler(dataset)
         batch_size = self.kwargs.get('batch_size', 1)
         data_loader = DataLoader(dataset=dataset,
@@ -65,9 +60,9 @@ class BaseInference:
                         continue
                     data_value = data_value.detach().cpu().numpy()
                     forward_output.setdefault(data_name, []).append(data_value)
-                logger.info('batch data {}/{} inference done'.format(step + 1, len(data_loader)))
+                logger_output('info', 'batch data {}/{} inference done'.format(step + 1, len(data_loader)))
         predictions = self.model.get_predictions(forward_output, dataset)
-        logger.info('inference done')
+        logger_output('info', 'inference done')
         write_json(self.kwargs['inference_output'], predictions)
 
 

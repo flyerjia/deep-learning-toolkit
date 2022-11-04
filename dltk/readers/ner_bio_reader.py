@@ -4,16 +4,11 @@
 @Time    :   2022/08/08 14:22:16
 @Author  :   jiangjiajia
 """
-
-
-import logging
-
 import torch
 
-from ..utils.common_utils import TOKENIZERS, fine_grade_tokenize, read_json
+from ..utils.common_utils import (TOKENIZERS, fine_grade_tokenize,
+                                  logger_output, read_json)
 from .base_reader import BaseReader
-
-logger = logging.getLogger(__name__)
 
 
 class NERBIOReader(BaseReader):
@@ -21,7 +16,7 @@ class NERBIOReader(BaseReader):
         super(NERBIOReader, self).__init__(phase, data, config)
         tokenizer = TOKENIZERS.get(self.config.get('tokenizer', ''), None)
         if not tokenizer:
-            logger.error('tokenizer type wrong or not configured')
+            logger_output('error', 'tokenizer type wrong or not configured')
             raise ValueError('tokenizer type wrong or not configured')
         self.tokenizer = tokenizer.from_pretrained(self.config.get('vocab_path', ''))
         self.id2label = read_json(self.config['label_map_path'])

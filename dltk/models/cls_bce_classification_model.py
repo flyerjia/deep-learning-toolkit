@@ -4,17 +4,15 @@
 @Time    :   2022/09/05 15:19:12
 @Author  :   jiangjiajia
 """
-import logging
 import copy
 
 import numpy as np
 import torch
 
-from ..utils.common_utils import ENCODERS, write_json, numpy_sigmoid
-from .base_model import BaseModel
 from ..modules.bce_focalloss import BCEFocalLoss
-
-logger = logging.getLogger(__name__)
+from ..utils.common_utils import (ENCODERS, logger_output, numpy_sigmoid,
+                                  write_json)
+from .base_model import BaseModel
 
 
 class CLSClassificationModel(BaseModel):
@@ -22,7 +20,7 @@ class CLSClassificationModel(BaseModel):
         super().__init__(**kwargs)
         encoder = ENCODERS.get(self.encoder.get('type', ''), None)
         if not encoder:
-            logger.error('encoder type wrong or not configured')
+            logger_output('error', 'encoder type wrong or not configured')
             raise ValueError('encoder type wrong or not configured')
         self.encoder = encoder.from_pretrained(self.encoder.get('pretrained_model_dir', ''))
         self.classifier = torch.nn.Linear(self.encoder.config.hidden_size, self.num_labels)
@@ -62,15 +60,15 @@ class CLSClassificationModel(BaseModel):
                     target_data['pred_label_prob'].append(each_output[pred_id].item())
                 # 默认在大于0.5中取概率最高的那个
                 # import pdb;pdb.set_trace()
-                max_idx = -1
-                max_prob = -1
-                for index, label_prob in enumerate(target_data['pred_label_prob']):
-                    if label_prob >= max_prob:
-                        max_prob = label_prob
-                        max_idx = index
-                if max_idx != -1:
-                    target_data['pred_label'] = [target_data['pred_label'][max_idx]]
-                    target_data['pred_label_prob'] = [target_data['pred_label_prob'][max_idx]]
+                # max_idx = -1
+                # max_prob = -1
+                # for index, label_prob in enumerate(target_data['pred_label_prob']):
+                #     if label_prob >= max_prob:
+                #         max_prob = label_prob
+                #         max_idx = index
+                # if max_idx != -1:
+                #     target_data['pred_label'] = [target_data['pred_label'][max_idx]]
+                #     target_data['pred_label_prob'] = [target_data['pred_label_prob'][max_idx]]
 
                 if len(target_data['pred_label']) == 0:
                     target_data['pred_label'].append('其他')
@@ -86,19 +84,18 @@ class CLSClassificationModel(BaseModel):
         for prediction in predictions:
             num_all += 1
             target_labels = prediction['label'].split(',')
-            pred_label = prediction['pred_label']
-            label_result_dict.setdefault(pred_label, {'pred_num': 0, 'target_num': 0, 'correct_num': 0})
-            label_result_dict[pred_label]['pred_num'] += 1
-            if pred_label in target_labels:
-                label_result_dict[pred_label]['correct_num'] += 1
-                label_result_dict[pred_label]['target_num'] += 1
-                num_correct += 1
-                continue         
+            pred_labels = prediction['pred_label'].split(',')
+            for pred_label in pred_labels:
+                label_result_dict.setdefault(pred_label, {'pred_num': 0, 'target_num': 0, 'correct_num': 0})
+                label_result_dict[pred_label]['pred_num'] += 1
+                if pred_label in target_labels:
+                    num_correct += 1
             for target_label in target_labels:
-                if target_label in dataset.label2id.keys():
-                    label_result_dict.setdefault(target_label, {'pred_num': 0, 'target_num': 0, 'correct_num': 0})
-                    label_result_dict[target_label]['target_num'] += 1
-            
+                label_result_dict.setdefault(target_label, {'pred_num': 0, 'target_num': 0, 'correct_num': 0})
+                label_result_dict[target_label]['target_num'] += 1
+            for temp_label in set(target_labels) & set(pred_labels):
+                label_result_dict[temp_label]['correct_num'] += 1
+
         label_result_dict = {key: value for key, value in sorted(label_result_dict.items(), key=lambda x: x[0])}
         results = {}
         results['F1'] = 0.
@@ -115,7 +112,7 @@ class CLSClassificationModel(BaseModel):
             results[label + '_F1'] = f1
             results['F1'] += f1
         results['F1'] /= len(label_result_dict.keys())
-        logger.info('F1:{}'.format(results['F1']))
+        logger_output('info', 'F1:{}'.format(results['F1']))
         return results
 
     def save_predictions(self, forward_output, dataset, file_path):

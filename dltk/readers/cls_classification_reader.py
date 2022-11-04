@@ -4,16 +4,11 @@
 @Time    :   2022/08/12 17:20:47
 @Author  :   jiangjiajia
 """
-
-import logging
+import torch
 from tqdm import tqdm
 
-import torch
-
-from ..utils.common_utils import TOKENIZERS, read_json
+from ..utils.common_utils import TOKENIZERS, logger_output, read_json
 from .base_reader import BaseReader
-
-logger = logging.getLogger(__name__)
 
 
 class CLSClassificationReader(BaseReader):
@@ -21,7 +16,7 @@ class CLSClassificationReader(BaseReader):
         super(CLSClassificationReader, self).__init__(phase, data, config)
         tokenizer = TOKENIZERS.get(self.config.get('tokenizer', ''), None)
         if not tokenizer:
-            logger.error('tokenizer type wrong or not configured')
+            logger_output('error', 'tokenizer type wrong or not configured')
             raise ValueError('tokenizer type wrong or not configured')
         self.tokenizer = tokenizer.from_pretrained(self.config.get('vocab_path', ''))
 

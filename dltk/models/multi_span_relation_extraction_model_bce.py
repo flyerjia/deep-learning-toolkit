@@ -4,19 +4,14 @@
 @Time    :   2022/07/28 10:31:58
 @Author  :   jiangjiajia
 """
-
-import logging
-
 import numpy as np
 import torch
 
 from ..metrics.metric import compute_f1
-from ..modules.biaffine import Biaffine
 from ..modules.bce_focalloss import BCEFocalLoss
-from ..utils.common_utils import ENCODERS, write_json
+from ..modules.biaffine import Biaffine
+from ..utils.common_utils import ENCODERS, logger_output, write_json
 from .base_model import BaseModel
-
-logger = logging.getLogger(__name__)
 
 
 class MultiSREModel(BaseModel):
@@ -28,7 +23,7 @@ class MultiSREModel(BaseModel):
         super(MultiSREModel, self).__init__(**kwargs)
         encoder = ENCODERS.get(self.encoder.get('type', ''), None)
         if not encoder:
-            logger.error('encoder type wrong or not configured')
+            logger_output('error', 'encoder type wrong or not configured')
             raise ValueError('encoder type wrong or not configured')
         self.encoder = encoder.from_pretrained(self.encoder.get('pretrained_model_dir', ''))
         self.query_layer = torch.nn.Sequential(
@@ -107,7 +102,7 @@ class MultiSREModel(BaseModel):
             results[str(label) + '_F1'] = label_metric['F1']
             results['F1'] += label_metric['F1']
         results['F1'] /= 3
-        logger.info('metrics F1:{}'.format(results['F1']))
+        logger_output('info', 'metrics F1:{}'.format(results['F1']))
         return results
 
     def get_predictions(self, forward_output, dataset):

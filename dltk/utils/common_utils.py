@@ -4,8 +4,6 @@
 @Time    :   2022/07/12 20:05:10
 @Author  :   jiangjiajia
 """
-
-import argparse
 import json
 import logging
 import os
@@ -17,9 +15,9 @@ import torch
 import torch.nn as nn
 import yaml
 from scipy.special import expit, softmax
-from torch.optim import AdamW
-from transformers import BertModel, BertTokenizer, MegatronBertModel, DebertaV2Model, ErnieModel, NezhaModel
-
+from torch.optim import AdamW, Adam, SGD
+from transformers import (BertModel, BertTokenizer, DebertaV2Model, ErnieModel,
+                          MegatronBertModel, NezhaModel)
 
 logger = logging.getLogger(__name__)
 
@@ -37,7 +35,9 @@ TOKENIZERS = {
 }
 
 OPTIMIZERS = {
-    'adamw': AdamW
+    'adamw': AdamW,
+    'adam': Adam,
+    'sgd': SGD
 }
 
 
@@ -52,18 +52,9 @@ def set_seed(seed=2022):
     os.environ['PYTHONHASHSEED'] = str(seed)
 
 
-def get_args():
-    cmd_choices = ['training', 'training_cv', 'inference', 'service']
-    parser = argparse.ArgumentParser()
-    parser.add_argument('--command', choices=cmd_choices, required=True)
-    parser.add_argument('--config', required=True)
-    args = parser.parse_args()
-    return args
-
-
 def init_logger(log_file, name='dltk'):
     time_ = time.strftime('%Y_%m_%d_%H_%M_%S', time.localtime())
-    log_format = logging.Formatter(fmt='%(asctime)s - %(levelname)s - %(name)s - %(message)s',
+    log_format = logging.Formatter(fmt='%(asctime)s - %(levelname)s  - %(message)s',
                                    datefmt='%Y/%m/%d %H:%M:%S')
     logger = logging.getLogger(name)
     logger.setLevel(logging.INFO)
@@ -77,21 +68,42 @@ def init_logger(log_file, name='dltk'):
     logger.addHandler(file_handler)
 
 
-def get_device(use_gpu=False, gpu_id=0):
+def logger_output(msg_type, msg, rank=0, only_ms_out=True):
+    """
+    日志输出封装
+
+    Args:
+        msg_type (str): 日志类型 info error warning
+        msg (str): 输出信息
+        rank (int, optional): rank id. Defaults to 0.
+        only_ms_out (boolean, optional): 是否只有rank=0的进程输入信息. Defaults to True.
+    """
+    if (only_ms_out and rank == 0) or not only_ms_out:
+        if msg_type == 'info':
+            logger.info(msg)
+        elif msg_type == 'error':
+            logger.error(msg)
+        elif msg_type == 'warning':
+            logger.warning(msg)
+        else:
+            logger.warning(msg)
+
+
+def get_device(use_gpu=False, rank=0):
     """
     暂时只支持单卡
     """
     if use_gpu:
         if not torch.cuda.is_available():
-            logger.warning('GPU not available')
+            logger_output('warning', 'GPU not available', rank)
             device = torch.device('cpu')
         else:
             gpu_nums = torch.cuda.device_count()
-            if 0 <= gpu_id < gpu_nums:
-                logger.info('use GPU: {}'.format(str(gpu_id)))
-                device = torch.device('cuda:' + str(gpu_id))
+            if 0 <= rank < gpu_nums:
+                logger_output('info', 'use GPU: {}'.format(str(rank)), rank, False)
+                device = torch.device('cuda:' + str(rank))
             else:
-                logger.info('argument gpu_id not correct')
+                logger_output('warning', 'argument gpu_id not correct', rank, False)
 
     else:
         device = torch.device('cpu')
@@ -106,8 +118,8 @@ def read_json(file_path):
         file_path (str): file path
     """
     if not os.path.exists(file_path):
-        logger.error('{} not exit'.format(file_path))
-        return
+        logger_output('error', '{} not exit'.format(file_path))
+        raise ValueError('{} not exit'.format(file_path))
     with open(file_path, 'r', encoding='utf-8') as fn:
         data = json.load(fn)
     return data
@@ -133,8 +145,8 @@ def read_jsons(file_path):
         file_path (str): file path
     """
     if not os.path.exists(file_path):
-        logger.error('{} not exit'.format(file_path))
-        return
+        logger_output('error', '{} not exit'.format(file_path))
+        raise ValueError('{} not exit'.format(file_path))
     data = []
     with open(file_path, 'r', encoding='utf-8') as fn:
         for line in fn.readlines():
@@ -165,8 +177,8 @@ def read_text(file_path):
         file_path (str): file path
     """
     if not os.path.exists(file_path):
-        logger.error('{} not exit'.format(file_path))
-        return
+        logger_output('error', '{} not exit'.format(file_path))
+        raise ValueError('{} not exit'.format(file_path))
     data = []
     with open(file_path, 'r', encoding='utf-8') as fn:
         for line in fn.readlines():
@@ -197,8 +209,8 @@ def read_yaml(file_path):
         file_path (str): file path
     """
     if not os.path.exists(file_path):
-        print('{} not exit'.format(file_path))
-        return
+        logger_output('error', '{} not exit'.format(file_path))
+        raise ValueError('{} not exit'.format(file_path))
     with open(file_path, 'r', encoding='utf-8') as fn:
         data = yaml.safe_load(fn)
     return data

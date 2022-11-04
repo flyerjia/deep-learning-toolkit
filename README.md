@@ -71,37 +71,18 @@ class YourModel(BaseModel):
 ```
 
 ```python
-# 若进行部署service_inference，还需要修改BaseController.service()函数的InputData，进行网络接口参数的定制化操作
-def service(self):
-    dataset = self.init_dataset_inference()
-    inference = self.init_inference()
+# 若进行部署service_inference，还需要在dltk/service_input下创建对应的参数说明文件
+class InputData(BaseModel):
+    pid: int
+    diagnose: str
+    category: str
+    ocr_json: List[Dict]
+    output_all_keys: bool = False  # 默认值
+    name: Union[str, None]  # 可选类型
+    debug: Optional[bool] = True  # 可选参数和默认值
 
-    app = FastAPI()
 
-    class InputData(BaseModel):
-        # 自行定义
-        text: str
-
-    @app.get("/health.json")
-    def health():
-        return {"status": "UP"}
-
-    # 接口均可自行定义
-    @app.post('/innerapi/ai/python/agent')
-    async def default_interface(input_data: InputData):
-        try:
-            result = inference.service_inference(dataset, input_data.dict())
-        except Exception as ex:
-            return {
-                'code': -1,
-                'msg': ex
-            }
-        return {
-            'code': 0,
-            'msg': 'OK',
-            'data': result
-        }
-    uvicorn.run(app, host='0.0.0.0', port=8080)
+input_data = InputData # 一定要有
 ```
 
 ```shell
@@ -119,4 +100,6 @@ python -m dltk --command training/training_cv/inference/service --config my_conf
  - EMA
  - FP16
  - convert pt model to tf model
+ - multi gpus
 
+注：当使用multi gpus时，实际batch_size = n_gpus * batch_size，应调大学习率进行适配。

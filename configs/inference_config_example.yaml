@@ -2,6 +2,9 @@ log_file: inference_log
 
 random_seed: 2022
 
+use_gpu: True
+gpu_ids: 1
+
 dataset:
   data_path: "data/test.txt" # 若为空，则为server_inference
   type: json # json/text  json 是整个文件为一个json  text是每行为一个json
@@ -13,8 +16,6 @@ dataset:
     max_seq_len: 512
 
 inference:
-  use_gpu: True
-  gpu_id: 1
   batch_size: 12
   inference_model: "XX_model.pth"
   inference_output: "XXX.result"

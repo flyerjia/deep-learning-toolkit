@@ -4,16 +4,11 @@
 @Time    :   2022/08/11 11:06:18
 @Author  :   jiangjiajia
 """
-
-import logging
+import torch
 from tqdm import tqdm
 
-import torch
-
-from ..utils.common_utils import TOKENIZERS, fine_grade_tokenize
+from ..utils.common_utils import TOKENIZERS, fine_grade_tokenize, logger_output
 from .base_reader import BaseReader
-
-logger = logging.getLogger(__name__)
 
 
 class PromptClassificationReader(BaseReader):
@@ -21,7 +16,7 @@ class PromptClassificationReader(BaseReader):
         super(PromptClassificationReader, self).__init__(phase, data, config)
         tokenizer = TOKENIZERS.get(self.config.get('tokenizer', ''), None)
         if not tokenizer:
-            logger.error('tokenizer type wrong or not configured')
+            logger_output('error', 'tokenizer type wrong or not configured')
             raise ValueError('tokenizer type wrong or not configured')
         self.tokenizer = tokenizer.from_pretrained(self.config.get('vocab_path', ''))
 

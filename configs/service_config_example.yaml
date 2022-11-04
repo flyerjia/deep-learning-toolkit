@@ -2,6 +2,9 @@ log_file: service_log
 
 random_seed: 2022
 
+use_gpu: True
+gpu_ids: 1
+
 dataset:
   reader: # reader必有
     type: XXX_reader
@@ -11,8 +14,5 @@ dataset:
     max_seq_len: 512
 
 inference:
-  use_gpu: True
-  gpu_id: 1
+  input_data_type: XXXX_input # 接口参数格式
   inference_model: "XX_model.pth"
-
-

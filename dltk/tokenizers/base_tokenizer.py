@@ -4,10 +4,9 @@
 @Time    :   2022/07/21 14:41:29
 @Author  :   jiangjiajia
 """
-
 import logging
 
-logger = logging.getLogger(__name__)
+from ..utils.common_utils import logger_output
 
 
 class BaseTokenizer:

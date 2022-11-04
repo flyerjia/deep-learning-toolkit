@@ -1,9 +1,13 @@
-log_file: train_cv_log
+log_file: train_log
 
 random_seed: 2022
 
+use_gpu: True
+gpu_ids: 1
+# gpu_ids: 0,1 # 自动加载多卡
+
 dataset:
-  train:
+  train: # 若多卡，只有训练阶段进行并行
     data_path: "data/train.txt"
     type: json # json/text  json 是整个文件为一个json  text是每行为一个json
     reader:
@@ -12,41 +16,39 @@ dataset:
       vocab_path: "pretrain_model/vocab.txt"
       padding: max_length
       max_seq_len: 512
-    batch_size: 16
-  # 交叉验证自动划分验证集
+    batch_size: 16 # 若多卡，实际batch_size = n_gpus * batch_size
+  # 交叉验证训练，验证集自动从训练集中切分，不用设置验证集
   test:
     data_path: "data/test.txt"
 
 model:
   # 模型参数可随意添加
   type: XXX_model
-  encoder:
+  encoder: # encoder主要针对加载预训练模型和进行分层学习率训练
     type: bert
     config_path: "pretrain_model/config.json"
     pretrained_model_dir: "pretrain_model"
-  weight_path: "pretrain_model/model.pth" # 若存在则加载权重    
+  weight_path: "pretrain_model/model.pth" # 若存在则加载权重
 
 optimizer:
   type: adamw
   lr: 1e-4 # 任务层学习率
   encoder_lr: 1e-5 # 嵌入层学习率
   weight_decay: 0.01
-  lr_scheduler: linear_schedule_with_warmup
+  lr_scheduler: linear_schedule_with_warmup # 暂时只支持linear_warmup
   warmup: 0.2
 
 trainer:
-  # k_fold: 5
+  k_fold: 5 # 交叉验证训练
   epoch: 10
   eval_epoch: 1
   test_epoch: 1
   model_sort_key: F1
-  early_stopping: True
-  max_model_num: 5
-  use_gpu: True
-  gpu_id: 1
-  use_fp16: False
-  use_fgm: False
-  use_ema: False
+  early_stopping: True # 是否早停
+  max_model_num: 5 # 最优模型保存数量
+  use_fp16: False # 是否开启混合精度训练
+  use_fgm: False # 是否使用对抗训练FGM
+  use_ema: False # 是否使用EMA
   output_path: "training_output"
   save_evaluations: False # 是否保存验证集指标
   save_checkpoints: False # 是否保存模型

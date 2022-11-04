@@ -4,16 +4,12 @@
 @Time    :   2022/08/11 11:41:59
 @Author  :   jiangjiajia
 """
-import logging
-
 import numpy as np
 import torch
 from sklearn.metrics import classification_report
 
-from ..utils.common_utils import ENCODERS, write_json
+from ..utils.common_utils import ENCODERS, logger_output, write_json
 from .base_model import BaseModel
-
-logger = logging.getLogger(__name__)
 
 
 class PromptClassificationModel(BaseModel):
@@ -21,7 +17,7 @@ class PromptClassificationModel(BaseModel):
         super().__init__(**kwargs)
         encoder = ENCODERS.get(self.encoder.get('type', ''), None)
         if not encoder:
-            logger.error('encoder type wrong or not configured')
+            logger_output('error', 'encoder type wrong or not configured')
             raise ValueError('encoder type wrong or not configured')
         self.encoder = encoder.from_pretrained(self.encoder.get('pretrained_model_dir', ''))
         self.classifier = torch.nn.Linear(self.encoder.config.hidden_size, self.num_labels)
@@ -80,8 +76,7 @@ class PromptClassificationModel(BaseModel):
                     results[label + '_' + key + '_' + 'F1'] = value['f1-score']
             results[label + '_acc'] = temp_scores['accuracy']
         results['F1'] /= len(label_results.keys())
-
-        logger.info('F1:{}'.format(results['F1']))
+        logger_output('info', 'F1:{}'.format(results['F1']))
         return results
 
     def save_predictions(self, forward_output, dataset, file_path):

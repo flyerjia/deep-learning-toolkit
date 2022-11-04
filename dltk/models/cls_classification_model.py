@@ -4,18 +4,13 @@
 @Time    :   2022/08/12 17:42:29
 @Author  :   jiangjiajia
 """
-
-import logging
-
 import numpy as np
 import torch
-from sklearn.metrics import f1_score, classification_report
+from sklearn.metrics import classification_report, f1_score
 
-from ..utils.common_utils import ENCODERS, write_json
-from .base_model import BaseModel
 from ..modules.ce_focalloss import CEFocalLoss
-
-logger = logging.getLogger(__name__)
+from ..utils.common_utils import ENCODERS, logger_output, write_json
+from .base_model import BaseModel
 
 
 class CLSClassificationModel(BaseModel):
@@ -23,7 +18,7 @@ class CLSClassificationModel(BaseModel):
         super().__init__(**kwargs)
         encoder = ENCODERS.get(self.encoder.get('type', ''), None)
         if not encoder:
-            logger.error('encoder type wrong or not configured')
+            logger_output('error', 'encoder type wrong or not configured')
             raise ValueError('encoder type wrong or not configured')
         self.encoder = encoder.from_pretrained(self.encoder.get('pretrained_model_dir', ''))
         self.classifier = torch.nn.Linear(self.encoder.config.hidden_size, self.num_labels)
@@ -77,8 +72,8 @@ class CLSClassificationModel(BaseModel):
                 results[key + '_r'] = scores[key]['recall']
                 results[key + '_f1'] = scores[key]['f1-score']
 
-        logger.info('F1:{}'.format(results['F1']))
-        logger.info('ACC:{}'.format(results['ACC']))
+        logger_output('info', 'F1:{}'.format(results['F1']))
+        logger_output('info', 'ACC:{}'.format(results['ACC']))
         return results
 
     def save_predictions(self, forward_output, dataset, file_path):

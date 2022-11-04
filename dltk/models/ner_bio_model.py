@@ -4,17 +4,12 @@
 @Time    :   2022/08/08 15:12:39
 @Author  :   jiangjiajia
 """
-
-import logging
-
 import numpy as np
 import torch
 
 from ..metrics.metric import compute_f1
-from ..utils.common_utils import ENCODERS, write_json
+from ..utils.common_utils import ENCODERS, logger_output, write_json
 from .base_model import BaseModel
-
-logger = logging.getLogger(__name__)
 
 
 class NERBIOModel(BaseModel):
@@ -22,7 +17,7 @@ class NERBIOModel(BaseModel):
         super(NERBIOModel, self).__init__(**kwargs)
         encoder = ENCODERS.get(self.encoder.get('type', ''), None)
         if not encoder:
-            logger.error('encoder type wrong or not configured')
+            logger_output('error', 'encoder type wrong or not configured')
             raise ValueError('encoder type wrong or not configured')
         self.encoder = encoder.from_pretrained(self.encoder.get('pretrained_model_dir', ''))
         self.classifier = torch.nn.Linear(self.encoder.config.hidden_size, self.num_labels)
@@ -50,7 +45,8 @@ class NERBIOModel(BaseModel):
             for each in data:
                 for entity in each['entities']:
                     entities.append((entity['start_idx'], entity['end_idx'], entity['type'], entity['entity']))
-                    entities_dict.setdefault(entity['type'], []).append((entity['start_idx'], entity['end_idx'], entity['type'], entity['entity']))
+                    entities_dict.setdefault(entity['type'], []).append(
+                        (entity['start_idx'], entity['end_idx'], entity['type'], entity['entity']))
             return entities, entities_dict
         predictions = self.get_predictions(forward_output, dataset)
         predictions, predictions_dict = get_entities(predictions)
@@ -58,7 +54,7 @@ class NERBIOModel(BaseModel):
         results = {}
         metric = compute_f1(predictions, targets)
         results.update(metric)
-        logger.info('metrics F1:{}'.format(results['F1']))
+        logger_output('info', 'metrics F1:{}'.format(results['F1']))
         return results
 
     def get_predictions(self, forward_output, dataset):
