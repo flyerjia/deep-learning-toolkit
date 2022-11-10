@@ -9,7 +9,6 @@ import copy
 import numpy as np
 import torch
 
-from ..modules.bce_focalloss import BCEFocalLoss
 from ..utils.common_utils import (ENCODERS, logger_output, numpy_sigmoid,
                                   write_json)
 from .base_model import BaseModel
@@ -71,7 +70,7 @@ class CLSClassificationModel(BaseModel):
                 #     target_data['pred_label_prob'] = [target_data['pred_label_prob'][max_idx]]
 
                 if len(target_data['pred_label']) == 0:
-                    target_data['pred_label'].append('其他')
+                    target_data['pred_label'].append('其他证件')
                 target_data['pred_label'] = ','.join(target_data['pred_label'])
                 predictions.append(target_data)
         return predictions

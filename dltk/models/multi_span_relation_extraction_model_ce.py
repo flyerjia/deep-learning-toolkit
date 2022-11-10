@@ -9,8 +9,6 @@ import torch
 
 from ..metrics.metric import compute_f1
 from ..modules.biaffine import Biaffine
-from ..modules.ce_focalloss import CEFocalLoss
-from ..modules.poly1_celoss import Poly1CrossEntropyLoss
 from ..utils.common_utils import (ENCODERS, logger_output, numpy_softmax,
                                   write_json)
 from .base_model import BaseModel
@@ -43,8 +41,6 @@ class MultiSREModel(BaseModel):
         self.biaffine = Biaffine(self.hidden_size, self.num_labels)
         label_weight = torch.FloatTensor([1.0, 2.0, 3.0, 4.0, 3.0, 3.0, 4.0, 3.0])
         self.criterion = torch.nn.CrossEntropyLoss(weight=label_weight, reduction='mean')
-        # self.criterion = CEFocalLoss(reduction='mean')
-        # self.criterion = Poly1CrossEntropyLoss(num_classes=self.num_labels, reduction='mean')
 
     def forward(self, input_ids, token_type_ids, attention_mask, labels=None, label_mask=None, phase=None, **kwargs):
         encoder_outputs = self.encoder(input_ids=input_ids, token_type_ids=token_type_ids,

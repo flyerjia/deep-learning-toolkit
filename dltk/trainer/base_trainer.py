@@ -323,10 +323,17 @@ class BaseTrainer:
             save_path = os.path.join(self.kwargs['save_checkpoints'], file_name)
             if self.kwargs.get('use_ema', False):
                 self.ema_model.apply_shadow()
+            only_save_model_weight = self.kwargs.get('only_save_model_weight', False)
             if self.ddp_flag:
-                torch.save(self.model.module, save_path)
+                if only_save_model_weight:
+                    torch.save(self.model.module.state_dict(), save_path)
+                else:
+                    torch.save(self.model.module, save_path)
             else:
-                torch.save(self.model, save_path)
+                if only_save_model_weight:
+                    torch.save(self.model.state_dict(), save_path)
+                else:
+                    torch.save(self.model, save_path)
             if self.kwargs.get('use_ema', False):
                 self.ema_model.restore()
             if not info:

@@ -48,6 +48,7 @@ trainer:
   model_sort_key: F1
   early_stopping: True # 是否早停
   max_model_num: 5 # 最优模型保存数量
+  only_save_model_weight: False # 是否只保存模型的权重
   use_fp16: False # 是否开启混合精度训练
   use_fgm: False # 是否使用对抗训练FGM
   use_ema: False # 是否使用EMA

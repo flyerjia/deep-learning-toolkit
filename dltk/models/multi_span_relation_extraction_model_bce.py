@@ -8,7 +8,6 @@ import numpy as np
 import torch
 
 from ..metrics.metric import compute_f1
-from ..modules.bce_focalloss import BCEFocalLoss
 from ..modules.biaffine import Biaffine
 from ..utils.common_utils import ENCODERS, logger_output, write_json
 from .base_model import BaseModel
@@ -40,7 +39,6 @@ class MultiSREModel(BaseModel):
         )
         self.biaffine = Biaffine(self.hidden_size, self.num_labels)
         self.criterion = torch.nn.BCEWithLogitsLoss(reduction='mean')
-        # self.criterion = BCEFocalLoss(gamma=2, alpha=0.3, reduction='mean')
 
     def forward(self, input_ids, token_type_ids, attention_mask, labels=None, label_mask=None, phase=None, **kwargs):
         encoder_outputs = self.encoder(input_ids=input_ids, token_type_ids=token_type_ids,

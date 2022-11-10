@@ -7,19 +7,14 @@
 import torch
 from torch.utils.data import DataLoader, SequentialSampler
 
-from ..utils.common_utils import get_device, write_json, logger_output
+from ..utils.common_utils import write_json, logger_output
 
 
 class BaseInference:
-    def __init__(self, device, **kwargs):
+    def __init__(self, device, model, **kwargs):
         self.device = device
+        self.model = model
         self.kwargs = kwargs
-        try:
-            self.model = torch.load(self.kwargs['inference_model'], map_location=self.device)
-            self.model.eval()
-        except Exception as ex:
-            logger_output('error', "can't load model: {}".format(self.kwargs['inference_model']))
-            raise ex
 
     def service_inference(self, dataset, example):
         dataset.data = [example]

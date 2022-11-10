@@ -7,6 +7,7 @@
 import torch
 import torch.nn as nn
 
+
 class CEFocalLoss(nn.Module):
     """Multi-class Focal loss implementation"""
 

@@ -245,6 +245,19 @@ class BaseController:
             logger_output('error', 'model type not configured', self.rank)
             raise ValueError('model type not configured')
 
+    def init_inference_model(self):
+        model_config = self.config.get('model', None)
+        inference_model_path = self.config.get('inference_model', None)
+        if model_config and not inference_model_path:
+            model = self.init_model()
+        elif inference_model_path and not model_config:
+            model = torch.load(inference_model_path, map_location='cpu')
+            model = model.to(self.device)
+        else:
+            logger_output('error', 'model and inference_model both not configured')
+            raise ValueError('model and inference_model both not configured')
+        return model
+
     def init_optimizer(self, train_dataset, model):
         logger_output('info', 'init optimizer', self.rank)
         optimizer_config = self.config['optimizer']
@@ -319,7 +332,7 @@ class BaseController:
             logger_output('info', 'training_cv {}/{} done'.format(k, self.config['trainer']['k_fold']), self.rank)
         logger_output('info', 'all done', self.rank)
 
-    def init_inference(self):
+    def init_inference(self, model):
         logger_output('info', 'init inferencer', self.rank)
         inference_config = self.config['inference']
         inference_type = inference_config.get('type', 'base_inference')
@@ -328,18 +341,20 @@ class BaseController:
         except Exception as ex:
             logger_output('error', '{} not existed or import error'.format(inference_type), self.rank)
             raise ex
-        inference = inference(self.device, **inference_config)
+        inference = inference(self.device, model, **inference_config)
         return inference
 
     def inference(self):
         dataset = self.init_dataset_inference()
-        inference = self.init_inference()
+        model = self.init_inference_model()
+        inference = self.init_inference(model)
         inference.inference(dataset)
         logger_output('info', 'all done', self.rank)
 
     def service(self):
         dataset = self.init_dataset_inference()
-        inference = self.init_inference()
+        model = self.init_inference_model()
+        inference = self.init_inference(model)
         input_data_type = self.config['inference'].get('input_data_type', 'base_input')
         try:
             InputData = importlib.import_module('...service_input.' + input_data_type, __name__).input_data
@@ -374,7 +389,8 @@ class BaseController:
         预测一条数据，用于将框架嵌入到其他项目中
         """
         dataset = self.init_dataset_inference()
-        inference = self.init_inference()
+        model = self.init_inference_model()
+        inference = self.init_inference(model)
         result = inference.service_inference(dataset, example)
         return result
 
