@@ -83,6 +83,12 @@ def run(rank, n_gpus, ddp_flag, cmd, config):
         from .utils.common_utils import init_logger, logger_output, set_seed
     except Exception as ex:
         raise ex
+    
+    try:
+        import transformers
+        transformers.logging.set_verbosity_error()
+    except Exception as ex:
+        raise ex
 
     init_logger(config['log_file'], package_name)
     set_seed(config.get('random_seed', 2022))
