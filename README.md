@@ -52,18 +52,19 @@ class YourModel(BaseModel):
             Dict: 包含各种指标的dict
         """
         pass
-    def get_predictions(self, forward_output, dataset):
+    def get_predictions(self, forward_output, forward_target, dataset):
         """
         计算预测结果，参数固定
 
         Args:
+            forward_output (Dict): {name:[batch1, batch2,...]} batch: numpy
             forward_output (Dict): {name:[batch1, batch2,...]} batch: numpy
             dataset (Dataset): dataset
         Return:
             List[Dict]
         """
         pass
-    def save_predictions(self, forward_output, dataset, file_path):
+    def save_predictions(self, forward_output, forward_target, dataset, file_path):
         """
         保存预测结果，参数固定
         """

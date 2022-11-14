@@ -40,7 +40,7 @@ class PromptClassificationModel(BaseModel):
                 'logits': logits
             }
 
-    def get_predictions(self, forward_output, dataset):
+    def get_predictions(self, forward_output, forward_target, dataset):
         predictions = []
         idx = 0
         for batch_output in forward_output['logits']:
@@ -56,7 +56,7 @@ class PromptClassificationModel(BaseModel):
         return predictions
 
     def get_metrics(self, phase, forward_output, forward_target, dataset=None):
-        predictions = self.get_predictions(forward_output, dataset)
+        predictions = self.get_predictions(forward_output, forward_target, dataset)
         label_results = {}
         for prediction in predictions:
             label = prediction['question']
@@ -79,8 +79,8 @@ class PromptClassificationModel(BaseModel):
         logger_output('info', 'F1:{}'.format(results['F1']))
         return results
 
-    def save_predictions(self, forward_output, dataset, file_path):
-        predictions = self.get_predictions(forward_output, dataset)
+    def save_predictions(self, forward_output, forward_target, dataset, file_path):
+        predictions = self.get_predictions(forward_output, forward_target, dataset)
         write_json(file_path, predictions)
 
 

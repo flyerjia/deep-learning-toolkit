@@ -48,7 +48,7 @@ class NERBIOModel(BaseModel):
                     entities_dict.setdefault(entity['type'], []).append(
                         (entity['start_idx'], entity['end_idx'], entity['type'], entity['entity']))
             return entities, entities_dict
-        predictions = self.get_predictions(forward_output, dataset)
+        predictions = self.get_predictions(forward_output, forward_target, dataset)
         predictions, predictions_dict = get_entities(predictions)
         targets, targets_dict = get_entities(dataset.data)
         results = {}
@@ -57,7 +57,7 @@ class NERBIOModel(BaseModel):
         logger_output('info', 'metrics F1:{}'.format(results['F1']))
         return results
 
-    def get_predictions(self, forward_output, dataset):
+    def get_predictions(self, forward_output, forward_target, dataset):
         def extract_result(results, text):
             text = "".join(text)
             ret = []
@@ -115,8 +115,8 @@ class NERBIOModel(BaseModel):
                 predictions.append(target_data)
         return predictions
 
-    def save_predictions(self, forward_output, dataset, file_path):
-        predictions = self.get_predictions(forward_output, dataset)
+    def save_predictions(self, forward_output, forward_target, dataset, file_path):
+        predictions = self.get_predictions(forward_output, forward_target, dataset)
         write_json(file_path, predictions)
 
 

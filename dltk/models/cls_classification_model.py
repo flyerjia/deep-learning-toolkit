@@ -39,7 +39,7 @@ class CLSClassificationModel(BaseModel):
                 'logits': logits
             }
 
-    def get_predictions(self, forward_output, dataset):
+    def get_predictions(self, forward_output, forward_target, dataset):
         predictions = []
         idx = 0
         for batch_output in forward_output['logits']:
@@ -56,7 +56,7 @@ class CLSClassificationModel(BaseModel):
         return predictions
 
     def get_metrics(self, phase, forward_output, forward_target, dataset=None):
-        predictions = self.get_predictions(forward_output, dataset)
+        predictions = self.get_predictions(forward_output, forward_target, dataset)
         temp_results = {'target': [], 'pred': []}
         for prediction, target in zip(predictions, dataset.data):
             temp_results['target'].append(target['label'])
@@ -75,8 +75,8 @@ class CLSClassificationModel(BaseModel):
         logger_output('info', 'ACC:{}'.format(results['ACC']))
         return results
 
-    def save_predictions(self, forward_output, dataset, file_path):
-        predictions = self.get_predictions(forward_output, dataset)
+    def save_predictions(self, forward_output, forward_target, dataset, file_path):
+        predictions = self.get_predictions(forward_output, forward_target, dataset)
         write_json(file_path, predictions)
 
 

@@ -38,12 +38,13 @@ class BaseModel(nn.Module):
         """
         raise NotImplementedError
 
-    def get_predictions(self, forward_output, dataset):
+    def get_predictions(self, forward_output, forward_target, dataset):
         """
         计算预测结果，参数固定
 
         Args:
             forward_output (Dict): {name:[batch1, batch2,...]} batch: numpy
+            forward_target (Dict): {name:[batch1, batch2,...]} batch: numpy
             dataset (Dataset): dataset
 
         Raises:
@@ -51,7 +52,7 @@ class BaseModel(nn.Module):
         """
         raise NotImplementedError
 
-    def save_predictions(self, forward_output, dataset, file_path):
+    def save_predictions(self, forward_output, forward_target, dataset, file_path):
         """
         保存预测结果，参数固定
         """

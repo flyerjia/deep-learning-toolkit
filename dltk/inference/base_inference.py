@@ -24,15 +24,21 @@ class BaseInference:
                 value = torch.unsqueeze(value, 0)
             example_instance[name] = value.to(self.device)
         forward_output = {}
+        forward_target = {}
         with torch.no_grad():
             example_instance['phase'] = 'inference'
             output = self.model(**example_instance)
+            for data_name, data_value in example_instance.items():
+                if not isinstance(data_value, torch.Tensor):
+                    continue
+                data_value = data_value.cpu().numpy()
+                forward_target.setdefault(data_name, []).append(data_value)            
             for data_name, data_value in output.items():
                 if not isinstance(data_value, torch.Tensor):
                     continue
                 data_value = data_value.detach().cpu().numpy()
                 forward_output.setdefault(data_name, []).append(data_value)
-        prediction = self.model.get_predictions(forward_output, dataset)[0]
+        prediction = self.model.get_predictions(forward_output, forward_target, dataset)[0]
         example.update(prediction)
         return example
 
@@ -45,18 +51,24 @@ class BaseInference:
                                  batch_size=batch_size,
                                  collate_fn=dataset.collate_fn)
         forward_output = {}
+        forward_target = {}
         with torch.no_grad():
             for step, batch_data in enumerate(data_loader):
                 batch_data = {data_name: data_value.to(self.device) for data_name, data_value in batch_data.items()}
                 batch_data['phase'] = 'inference'
                 output = self.model(**batch_data)
+                for data_name, data_value in batch_data.items():
+                    if not isinstance(data_value, torch.Tensor):
+                        continue
+                    data_value = data_value.cpu().numpy()
+                    forward_target.setdefault(data_name, []).append(data_value)                
                 for data_name, data_value in output.items():
                     if not isinstance(data_value, torch.Tensor):
                         continue
                     data_value = data_value.detach().cpu().numpy()
                     forward_output.setdefault(data_name, []).append(data_value)
                 logger_output('info', 'batch data {}/{} inference done'.format(step + 1, len(data_loader)))
-        predictions = self.model.get_predictions(forward_output, dataset)
+        predictions = self.model.get_predictions(forward_output, forward_target, dataset)
         logger_output('info', 'inference done')
         write_json(self.kwargs['inference_output'], predictions)
 

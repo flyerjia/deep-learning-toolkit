@@ -17,7 +17,7 @@ import yaml
 from scipy.special import expit, softmax
 from torch.optim import AdamW, Adam, SGD
 from transformers import (BertModel, BertTokenizer, DebertaV2Model, ErnieModel,
-                          MegatronBertModel, NezhaModel)
+                          MegatronBertModel, NezhaModel, T5Tokenizer, T5ForConditionalGeneration)
 
 logger = logging.getLogger(__name__)
 
@@ -27,11 +27,13 @@ ENCODERS = {
     'erlangshen': MegatronBertModel,
     'deberta-v2': DebertaV2Model,
     'ernie': ErnieModel,
+    't5': T5ForConditionalGeneration,
     'lstm': nn.LSTM
 }
 
 TOKENIZERS = {
-    'bert_tokenizer': BertTokenizer
+    'bert_tokenizer': BertTokenizer,
+    't5_tokenizer': T5Tokenizer
 }
 
 OPTIMIZERS = {

@@ -215,7 +215,7 @@ class BaseTrainer:
         self.all_eval_info[epoch] = metrics
 
         if self.kwargs.get('save_predictions', None):
-            self.save_prediction_file(epoch, phase, forward_output, dataset, info)
+            self.save_prediction_file(epoch, phase, forward_output, forward_target, dataset, info)
 
         logger_output('info', 'eval done', self.rank)
 
@@ -224,6 +224,7 @@ class BaseTrainer:
     def test(self, epoch, phase, dataset, info=None):
         logger_output('info', 'starting test', self.rank)
         forward_output = {}
+        forward_target = {}
 
         if self.kwargs.get('use_ema', False):
             self.ema_model.apply_shadow()
@@ -238,6 +239,11 @@ class BaseTrainer:
                 else:
                     output = self.model(**batch_data)
                 # 全部转换成numpy，减少gpu显存消耗
+                for data_name, data_value in batch_data.items():
+                    if not isinstance(data_value, torch.Tensor):
+                        continue
+                    data_value = data_value.detach().cpu().numpy()
+                    forward_target.setdefault(data_name, []).append(data_value)                
                 for data_name, data_value in output.items():
                     if not isinstance(data_value, torch.Tensor):
                         continue
@@ -251,7 +257,7 @@ class BaseTrainer:
             self.ema_model.restore()
 
         if self.kwargs.get('save_predictions', None):
-            self.save_prediction_file(epoch, phase, forward_output, dataset, info)
+            self.save_prediction_file(epoch, phase, forward_output, forward_target, dataset, info)
 
         logger_output('info', 'test done')
 
@@ -286,7 +292,7 @@ class BaseTrainer:
                 values.append(val)
             fn.write('{}\n'.format('\t'.join(values)))
 
-    def save_prediction_file(self, epoch, phase, forward_output, dataset, info=None):
+    def save_prediction_file(self, epoch, phase, forward_output, forward_target, dataset, info=None):
         if not os.path.exists(self.kwargs['save_predictions']):
             os.makedirs(self.kwargs['save_predictions'])
         if not info:
@@ -295,9 +301,9 @@ class BaseTrainer:
             file_name = info + '_prediction.{}.{}'.format(phase, epoch)
         file_path = os.path.join(self.kwargs['save_predictions'], file_name)
         if self.ddp_flag:
-            self.model.module.save_predictions(forward_output, dataset['dataset'], file_path)
+            self.model.module.save_predictions(forward_output, forward_target, dataset['dataset'], file_path)
         else:
-            self.model.save_predictions(forward_output, dataset['dataset'], file_path)
+            self.model.save_predictions(forward_output, forward_target, dataset['dataset'], file_path)
         if not info:
             logger_output('info', 'saving predicton:{}'.format(file_name), self.rank)
         else:

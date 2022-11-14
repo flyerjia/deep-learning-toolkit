@@ -88,7 +88,7 @@ class MultiSREModel(BaseModel):
                         entities.add((sub_tail_start_idx, sub_tail_end_idx, sub_tail['mention']))
 
             return relations, list(entities)
-        predictions = self.get_predictions(forward_output, dataset)
+        predictions = self.get_predictions(forward_output, forward_target, dataset)
         predictions, pred_entities = get_relations(predictions)
         targets, target_entities = get_relations(dataset.data)
         results = {}
@@ -105,7 +105,7 @@ class MultiSREModel(BaseModel):
         logger_output('info', 'metrics F1:{}'.format(results['F1']))
         return results
 
-    def get_predictions(self, forward_output, dataset):
+    def get_predictions(self, forward_output, forward_target, dataset):
         predictions = []
         idx = 0
         for batch_output in forward_output['logits']:
@@ -247,8 +247,8 @@ class MultiSREModel(BaseModel):
                 })
         return predictions
 
-    def save_predictions(self, forward_output, dataset, file_path):
-        predictions = self.get_predictions(forward_output, dataset)
+    def save_predictions(self, forward_output, forward_target, dataset, file_path):
+        predictions = self.get_predictions(forward_output, forward_target, dataset)
         write_json(file_path, predictions)
 
 
