@@ -39,24 +39,22 @@ class CLSClassificationModel(BaseModel):
                 'logits': logits
             }
 
-    def get_predictions(self, forward_output, forward_target, dataset):
+    def get_predictions(self, forward_output, forward_target, dataset, start_index=0):
         predictions = []
         idx = 0
-        for batch_output in forward_output['logits']:
-            for each_output in batch_output:
-                target_data = dataset.data[idx]
-                content = target_data['content']
-                idx += 1
-                each_output = np.exp(each_output) / np.sum(np.exp(each_output))
-                pred = np.argmax(each_output).item()
-                target_data['pred_label_prob'] = each_output[pred].item()
-                pred = dataset.id2label[pred]
-                target_data['pred_label'] = pred
-                predictions.append(target_data)
+        for each_output in forward_output['logits']:
+            target_data = dataset.data[idx + start_index]
+            content = target_data['content']
+            idx += 1
+            each_output = np.exp(each_output) / np.sum(np.exp(each_output))
+            pred = np.argmax(each_output).item()
+            target_data['pred_label_prob'] = each_output[pred].item()
+            pred = dataset.id2label[pred]
+            target_data['pred_label'] = pred
+            predictions.append(target_data)
         return predictions
 
-    def get_metrics(self, phase, forward_output, forward_target, dataset=None):
-        predictions = self.get_predictions(forward_output, forward_target, dataset)
+    def get_metrics(self, phase, predictions, dataset):
         temp_results = {'target': [], 'pred': []}
         for prediction, target in zip(predictions, dataset.data):
             temp_results['target'].append(target['label'])
@@ -74,10 +72,6 @@ class CLSClassificationModel(BaseModel):
         logger_output('info', 'F1:{}'.format(results['F1']))
         logger_output('info', 'ACC:{}'.format(results['ACC']))
         return results
-
-    def save_predictions(self, forward_output, forward_target, dataset, file_path):
-        predictions = self.get_predictions(forward_output, forward_target, dataset)
-        write_json(file_path, predictions)
 
 
 model = CLSClassificationModel

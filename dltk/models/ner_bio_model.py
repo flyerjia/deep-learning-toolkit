@@ -38,7 +38,7 @@ class NERBIOModel(BaseModel):
                 'logits': logits
             }
 
-    def get_metrics(self, phase, forward_output, forward_target, dataset=None):
+    def get_metrics(self, phase, predictions, dataset):
         def get_entities(data):
             entities = []
             entities_dict = {}
@@ -48,7 +48,7 @@ class NERBIOModel(BaseModel):
                     entities_dict.setdefault(entity['type'], []).append(
                         (entity['start_idx'], entity['end_idx'], entity['type'], entity['entity']))
             return entities, entities_dict
-        predictions = self.get_predictions(forward_output, forward_target, dataset)
+
         predictions, predictions_dict = get_entities(predictions)
         targets, targets_dict = get_entities(dataset.data)
         results = {}
@@ -57,7 +57,7 @@ class NERBIOModel(BaseModel):
         logger_output('info', 'metrics F1:{}'.format(results['F1']))
         return results
 
-    def get_predictions(self, forward_output, forward_target, dataset):
+    def get_predictions(self, forward_output, forward_target, dataset, start_index=0):
         def extract_result(results, text):
             text = "".join(text)
             ret = []
@@ -103,21 +103,16 @@ class NERBIOModel(BaseModel):
 
         predictions = []
         idx = 0
-        for batch_output in forward_output['logits']:
-            for each_output in batch_output:  # [max_len, num_labels]
-                target_data = dataset.data[idx]
-                idx += 1
-                text = target_data['text'][:dataset.config['max_seq_len']]
-                preds = np.argmax(each_output, axis=1)  # [max_len]
-                preds = preds[1:dataset.config['max_seq_len'] + 1]
-                predicts = extract_result(preds, text)
-                target_data['entities'] = predicts
-                predictions.append(target_data)
+        for each_output in forward_output['logits']:  # [max_len, num_labels]
+            target_data = dataset.data[idx + start_index]
+            idx += 1
+            text = target_data['text'][:dataset.config['max_seq_len']]
+            preds = np.argmax(each_output, axis=1)  # [max_len]
+            preds = preds[1:dataset.config['max_seq_len'] + 1]
+            predicts = extract_result(preds, text)
+            target_data['entities'] = predicts
+            predictions.append(target_data)
         return predictions
-
-    def save_predictions(self, forward_output, forward_target, dataset, file_path):
-        predictions = self.get_predictions(forward_output, forward_target, dataset)
-        write_json(file_path, predictions)
 
 
 model = NERBIOModel

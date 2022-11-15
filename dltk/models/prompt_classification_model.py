@@ -40,23 +40,22 @@ class PromptClassificationModel(BaseModel):
                 'logits': logits
             }
 
-    def get_predictions(self, forward_output, forward_target, dataset):
+    def get_predictions(self, forward_output, forward_target, dataset, start_index=0):
         predictions = []
         idx = 0
-        for batch_output in forward_output['logits']:
-            for each_output in batch_output:
-                target_data = dataset.data[idx]
-                text = target_data['text']
-                question = target_data['question']
-                idx += 1
-                pred = np.argmax(each_output).item()
-                pred = dataset.id2label[pred]
-                target_data['pred_answer'] = pred
-                predictions.append(target_data)
+
+        for each_output in forward_output['logits']:
+            target_data = dataset.data[idx + start_index]
+            text = target_data['text']
+            question = target_data['question']
+            idx += 1
+            pred = np.argmax(each_output).item()
+            pred = dataset.id2label[pred]
+            target_data['pred_answer'] = pred
+            predictions.append(target_data)
         return predictions
 
-    def get_metrics(self, phase, forward_output, forward_target, dataset=None):
-        predictions = self.get_predictions(forward_output, forward_target, dataset)
+    def get_metrics(self, phase, predictions, dataset):
         label_results = {}
         for prediction in predictions:
             label = prediction['question']
@@ -78,10 +77,6 @@ class PromptClassificationModel(BaseModel):
         results['F1'] /= len(label_results.keys())
         logger_output('info', 'F1:{}'.format(results['F1']))
         return results
-
-    def save_predictions(self, forward_output, forward_target, dataset, file_path):
-        predictions = self.get_predictions(forward_output, forward_target, dataset)
-        write_json(file_path, predictions)
 
 
 model = PromptClassificationModel

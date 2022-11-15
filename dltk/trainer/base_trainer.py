@@ -113,9 +113,11 @@ class BaseTrainer:
             if self.rank == 0 and 'eval_epoch' in self.kwargs.keys() and epoch % self.kwargs.get('eval_epoch', 1) == 0 and dev_dataset:
                 dev_metrics_output = self.eval(epoch, 'dev', dev_dataset, info)
                 if not info:
-                    logger_output('info', 'epoch:{} eval time cost:{}'.format(epoch, dev_metrics_output['time']), self.rank)
+                    logger_output('info', 'epoch:{} eval time cost:{}'.format(
+                        epoch, dev_metrics_output['time']), self.rank)
                 else:
-                    logger_output('info', 'cv[{}] epoch:{} eval time cost:{}'.format(info, epoch, dev_metrics_output['time']), self.rank)
+                    logger_output('info', 'cv[{}] epoch:{} eval time cost:{}'.format(
+                        info, epoch, dev_metrics_output['time']), self.rank)
                 if self.kwargs.get('save_evaluations', None):
                     self.save_evaluation_file(epoch, 'dev',  dev_metrics_output, info)
 
@@ -167,8 +169,8 @@ class BaseTrainer:
 
     def eval(self, epoch, phase, dataset, info=None):
         logger_output('info', 'starting eval', self.rank)
-        forward_output = {}
-        forward_target = {}
+        predictions = []
+        start_index = 0
 
         begin_time = time.time()
         if self.kwargs.get('use_ema', False):
@@ -183,26 +185,34 @@ class BaseTrainer:
                     output = self.model.module(**batch_data)
                 else:
                     output = self.model(**batch_data)
+                forward_output = {}
+                forward_target = {}
                 # 全部转换成numpy，减少gpu显存消耗
                 for data_name, data_value in batch_data.items():
                     if not isinstance(data_value, torch.Tensor):
                         continue
-                    data_value = data_value.cpu().numpy()
-                    forward_target.setdefault(data_name, []).append(data_value)
+                    data_value = data_value.detach().cpu().numpy()
+                    forward_target[data_name] = data_value
                 for data_name, data_value in output.items():
                     if not isinstance(data_value, torch.Tensor):
                         continue
                     data_value = data_value.detach().cpu().numpy()
-                    forward_output.setdefault(data_name, []).append(data_value)
+                    forward_output[data_name] = data_value
+                if self.ddp_flag:
+                    batch_predictions = self.model.module.get_predictions(forward_output, forward_target, dataset['dataset'], start_index)
+                else:
+                    batch_predictions = self.model.get_predictions( forward_output, forward_target, dataset['dataset'], start_index)
+                predictions.extend(batch_predictions)
+                start_index += max([forward_target[data_name].shape[0] for data_name in forward_target.keys()])
                 step_end_time = time.time()
                 step_used_time = step_end_time - step_begin_time
                 logger_output('info', 'rank:{} epoch:{} eval data step:{}/{} time:{:.6f}'.format(self.rank, epoch,
                               step + 1, len(dataset['dataloader']), step_used_time), self.rank)
 
         if self.ddp_flag:
-            metrics_output = self.model.module.get_metrics(phase, forward_output, forward_target, dataset['dataset'])
+            metrics_output = self.model.module.get_metrics(phase, predictions, dataset['dataset'])
         else:
-            metrics_output = self.model.get_metrics(phase, forward_output, forward_target, dataset['dataset'])
+            metrics_output = self.model.get_metrics(phase, predictions, dataset['dataset'])
         if self.kwargs.get('use_ema', False):
             self.ema_model.restore()
 
@@ -215,7 +225,7 @@ class BaseTrainer:
         self.all_eval_info[epoch] = metrics
 
         if self.kwargs.get('save_predictions', None):
-            self.save_prediction_file(epoch, phase, forward_output, forward_target, dataset, info)
+            self.save_prediction_file(epoch, phase, predictions, info)
 
         logger_output('info', 'eval done', self.rank)
 
@@ -223,8 +233,8 @@ class BaseTrainer:
 
     def test(self, epoch, phase, dataset, info=None):
         logger_output('info', 'starting test', self.rank)
-        forward_output = {}
-        forward_target = {}
+        predictions = []
+        start_index = 0
 
         if self.kwargs.get('use_ema', False):
             self.ema_model.apply_shadow()
@@ -238,17 +248,25 @@ class BaseTrainer:
                     output = self.model.module(**batch_data)
                 else:
                     output = self.model(**batch_data)
+                forward_output = {}
+                forward_target = {}
                 # 全部转换成numpy，减少gpu显存消耗
                 for data_name, data_value in batch_data.items():
                     if not isinstance(data_value, torch.Tensor):
                         continue
                     data_value = data_value.detach().cpu().numpy()
-                    forward_target.setdefault(data_name, []).append(data_value)                
+                    forward_target[data_name] = data_value
                 for data_name, data_value in output.items():
                     if not isinstance(data_value, torch.Tensor):
                         continue
                     data_value = data_value.detach().cpu().numpy()
-                    forward_output.setdefault(data_name, []).append(data_value)
+                    forward_output[data_name] = data_value
+                if self.ddp_flag:
+                    batch_predictions = self.model.module.get_predictions( forward_output, forward_target, dataset['dataset'], start_index)
+                else:
+                    batch_predictions = self.model.get_predictions(forward_output, forward_target, dataset['dataset'], start_index)
+                predictions.extend(batch_predictions)
+                start_index += max([forward_target[data_name].shape[0] for data_name in forward_target.keys()])
                 step_end_time = time.time()
                 step_used_time = step_end_time - step_begin_time
                 logger_output('info', 'rank:{} epoch:{} test data step:{}/{} time:{:.6f}'.format(self.rank, epoch,
@@ -257,7 +275,7 @@ class BaseTrainer:
             self.ema_model.restore()
 
         if self.kwargs.get('save_predictions', None):
-            self.save_prediction_file(epoch, phase, forward_output, forward_target, dataset, info)
+            self.save_prediction_file(epoch, phase, predictions, info)
 
         logger_output('info', 'test done')
 
@@ -292,7 +310,7 @@ class BaseTrainer:
                 values.append(val)
             fn.write('{}\n'.format('\t'.join(values)))
 
-    def save_prediction_file(self, epoch, phase, forward_output, forward_target, dataset, info=None):
+    def save_prediction_file(self, epoch, phase, predictions, info=None):
         if not os.path.exists(self.kwargs['save_predictions']):
             os.makedirs(self.kwargs['save_predictions'])
         if not info:
@@ -301,9 +319,9 @@ class BaseTrainer:
             file_name = info + '_prediction.{}.{}'.format(phase, epoch)
         file_path = os.path.join(self.kwargs['save_predictions'], file_name)
         if self.ddp_flag:
-            self.model.module.save_predictions(forward_output, forward_target, dataset['dataset'], file_path)
+            self.model.module.save_predictions(predictions, file_path)
         else:
-            self.model.save_predictions(forward_output, forward_target, dataset['dataset'], file_path)
+            self.model.save_predictions(predictions, file_path)
         if not info:
             logger_output('info', 'saving predicton:{}'.format(file_name), self.rank)
         else:

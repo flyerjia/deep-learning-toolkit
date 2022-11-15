@@ -41,42 +41,40 @@ class CLSClassificationModel(BaseModel):
                 'logits': logits
             }
 
-    def get_predictions(self, forward_output, forward_target, dataset):
+    def get_predictions(self, forward_output, forward_target, dataset, start_index=0):
         predictions = []
         idx = 0
-        for batch_output in forward_output['logits']:
-            for each_output in batch_output:
-                target_data = copy.deepcopy(dataset.data[idx])
-                target_data['pred_label'] = []
-                target_data['pred_label_prob'] = []
-                idx += 1
-                each_output = numpy_sigmoid(each_output)
-                pred_idx = np.where(each_output > 0.5)[0]
-                for pred in pred_idx:
-                    pred_id = pred.item()
-                    pred = dataset.id2label[pred_id]
-                    target_data['pred_label'].append(pred)
-                    target_data['pred_label_prob'].append(each_output[pred_id].item())
-                # 默认在大于0.5中取概率最高的那个
-                # import pdb;pdb.set_trace()
-                # max_idx = -1
-                # max_prob = -1
-                # for index, label_prob in enumerate(target_data['pred_label_prob']):
-                #     if label_prob >= max_prob:
-                #         max_prob = label_prob
-                #         max_idx = index
-                # if max_idx != -1:
-                #     target_data['pred_label'] = [target_data['pred_label'][max_idx]]
-                #     target_data['pred_label_prob'] = [target_data['pred_label_prob'][max_idx]]
+        for each_output in forward_output['logits']:
+            target_data = copy.deepcopy(dataset.data[idx + start_index])
+            target_data['pred_label'] = []
+            target_data['pred_label_prob'] = []
+            idx += 1
+            each_output = numpy_sigmoid(each_output)
+            pred_idx = np.where(each_output > 0.5)[0]
+            for pred in pred_idx:
+                pred_id = pred.item()
+                pred = dataset.id2label[pred_id]
+                target_data['pred_label'].append(pred)
+                target_data['pred_label_prob'].append(each_output[pred_id].item())
+            # 默认在大于0.5中取概率最高的那个
+            # import pdb;pdb.set_trace()
+            # max_idx = -1
+            # max_prob = -1
+            # for index, label_prob in enumerate(target_data['pred_label_prob']):
+            #     if label_prob >= max_prob:
+            #         max_prob = label_prob
+            #         max_idx = index
+            # if max_idx != -1:
+            #     target_data['pred_label'] = [target_data['pred_label'][max_idx]]
+            #     target_data['pred_label_prob'] = [target_data['pred_label_prob'][max_idx]]
 
-                if len(target_data['pred_label']) == 0:
-                    target_data['pred_label'].append('其他证件')
-                target_data['pred_label'] = ','.join(target_data['pred_label'])
-                predictions.append(target_data)
+            if len(target_data['pred_label']) == 0:
+                target_data['pred_label'].append('其他证件')
+            target_data['pred_label'] = ','.join(target_data['pred_label'])
+            predictions.append(target_data)
         return predictions
 
-    def get_metrics(self, phase, forward_output, forward_target, dataset=None):
-        predictions = self.get_predictions(forward_output, forward_target, dataset)
+    def get_metrics(self, phase, predictions, dataset):
         label_result_dict = {}
         num_all = 0
         num_correct = 0
@@ -113,10 +111,6 @@ class CLSClassificationModel(BaseModel):
         results['F1'] /= len(label_result_dict.keys())
         logger_output('info', 'F1:{}'.format(results['F1']))
         return results
-
-    def save_predictions(self, forward_output, forward_target, dataset, file_path):
-        predictions = self.get_predictions(forward_output, forward_target, dataset)
-        write_json(file_path, predictions)
 
 
 model = CLSClassificationModel

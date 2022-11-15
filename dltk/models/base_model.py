@@ -8,7 +8,7 @@
 import torch
 import torch.nn as nn
 
-from ..utils.common_utils import logger_output
+from ..utils.common_utils import logger_output, write_json
 
 
 class BaseModel(nn.Module):
@@ -25,38 +25,38 @@ class BaseModel(nn.Module):
         # train 返回loss 其他不返回loss
         raise NotImplementedError
 
-    def get_metrics(self, phase, forward_output, forward_target, dataset=None):
+    def get_metrics(self, phase, predictions, dataset):
         """
         计算评价指标, 参数固定
 
         Args:
-            forward_output (Dict): {name:[batch1, batch2,...]} batch: numpy
-            forward_target (Dict): {name:[batch1, batch2,...]} batch: numpy
+            predictions (List): 预测结果
             dataset(Dataset): dataset
         Raises:
             NotImplementedError: 模型单独实现
         """
         raise NotImplementedError
 
-    def get_predictions(self, forward_output, forward_target, dataset):
+    def get_predictions(self, forward_output, forward_target, dataset, start_index=0):
         """
-        计算预测结果，参数固定
+        计算预测结果，参数固定，对每个batch的数据进行解码
 
         Args:
-            forward_output (Dict): {name:[batch1, batch2,...]} batch: numpy
-            forward_target (Dict): {name:[batch1, batch2,...]} batch: numpy
+            forward_output (Dict): {name:batch_data} batch_data: numpy
+            forward_target (Dict): {name:batch_data} batch_data: numpy
             dataset (Dataset): dataset
+            start_index (int): 对于dataset中，对应的数据起始位置
 
         Raises:
             NotImplementedError: _description_
         """
         raise NotImplementedError
 
-    def save_predictions(self, forward_output, forward_target, dataset, file_path):
+    def save_predictions(self, predictions, file_path):
         """
-        保存预测结果，参数固定
+        保存预测结果，参数固定，可根据需求自行设置保存格式
         """
-        raise NotImplementedError
+        write_json(file_path, predictions)
 
 
 model = BaseModel

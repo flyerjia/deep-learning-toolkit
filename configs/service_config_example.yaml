@@ -5,6 +5,9 @@ random_seed: 2022
 use_gpu: True
 gpu_ids: 1
 
+port: 8080 # 端口号
+url: "/innerapi/ai/python/agent" # 接口名称
+
 dataset:
   reader: # reader必有
     type: XXX_reader
@@ -14,7 +17,7 @@ dataset:
     max_seq_len: 512
 
 # model: # 先创建模型，然后加载权重
-#   # 模型参数可随意添加 
+#   # 模型参数可随意添加
 #   type: XXX_model
 #   encoder: # encoder主要针对加载预训练模型和进行分层学习率训练
 #     type: bert

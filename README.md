@@ -31,44 +31,51 @@ class YourReader(BaseReader):
 ```
 ```python
 class YourModel(BaseModel):
-    def __int__(self, **kwargs):
-        super(YourModel, self).__init__(**kwargs)
+    def __init__(self, **kwargs):
+        super(BaseModel, self).__init__()
+        for name, value in kwargs.items():
+            setattr(self, name, value)
         # encoder的名字一定要包含‘encoder’，分层学习率才能生效
-        pass
-    def forward(self, **input_data):
-        # input_data为dataset返回dict格式结果 + {'phase': 'train'/'def'/'test'/'inference'}
 
-        pass
-    def get_metrics(self, phase, forward_output, forward_target, dataset=None):
+    def forward(self, **input_data):
+        """
+        参数 input_data 要包含phase
+        """
+        # train 返回loss 其他不返回loss
+        raise NotImplementedError
+
+    def get_metrics(self, phase, predictions, dataset):
         """
         计算评价指标, 参数固定
 
         Args:
-            phase (str): 'training' 'eval' 'inference'等
-            forward_output (Dict): {name:[batch1, batch2,...]} batch: numpy
-            forward_target (Dict): {name:[batch1, batch2,...]} batch: numpy
+            predictions (List): 预测结果
             dataset(Dataset): dataset
-        Return:
-            Dict: 包含各种指标的dict
+        Raises:
+            NotImplementedError: 模型单独实现
         """
-        pass
-    def get_predictions(self, forward_output, forward_target, dataset):
+        raise NotImplementedError
+
+    def get_predictions(self, forward_output, forward_target, dataset, start_index=0):
         """
-        计算预测结果，参数固定
+        计算预测结果，参数固定，对每个batch的数据进行解码
 
         Args:
-            forward_output (Dict): {name:[batch1, batch2,...]} batch: numpy
-            forward_output (Dict): {name:[batch1, batch2,...]} batch: numpy
+            forward_output (Dict): {name:batch_data} batch_data: numpy
+            forward_target (Dict): {name:batch_data} batch_data: numpy
             dataset (Dataset): dataset
-        Return:
-            List[Dict]
+            start_index (int): 对于dataset中，对应的数据起始位置
+
+        Raises:
+            NotImplementedError: _description_
         """
-        pass
-    def save_predictions(self, forward_output, forward_target, dataset, file_path):
+        raise NotImplementedError
+
+    def save_predictions(self, predictions, file_path):
         """
-        保存预测结果，参数固定
+        保存预测结果，参数固定，可根据需求自行设置保存格式
         """
-        pass
+        write_json(file_path, predictions)
 ```
 
 ```python

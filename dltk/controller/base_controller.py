@@ -205,7 +205,7 @@ class BaseController:
                 inference_data = self.get_data('inference', data_path, dataset_config.get('type', None))
             else:
                 inference_data = None
-                logger_output('info', 'wrong data type or data path not configured', self.rank)
+                logger_output('warning', 'wrong data type or data path not configured', self.rank)
             dataset = dataset_reader('inference', inference_data, dataset_reader_config)
             return dataset
         else:
@@ -271,19 +271,23 @@ class BaseController:
             else:
                 other_modules_parameters.append((name, parameter))
         no_decay = ['bias', 'LayerNorm.bias', 'LayerNorm.weight']
+        lr = optimizer_config.get('lr', 1e-4)
+        encoder_lr = optimizer_config.get('encoder_lr', 1e-5)
+        weight_decay = optimizer_config.get('weight_decay', 0.01)
+        warmup = optimizer_config.get('warmup', 0.1)
         optimizer_grouped_parameters = [
             {'params': [p for n, p in encoder_modules_parameters if not any(nd in n for nd in no_decay)],
-             'weight_decay': optimizer_config['weight_decay'], 'lr': float(optimizer_config['encoder_lr'])},
+             'weight_decay': optimizer_config['weight_decay'], 'lr': float(encoder_lr)},
             {'params': [p for n, p in encoder_modules_parameters if any(nd in n for nd in no_decay)],
-             'weight_decay': 0.0, 'lr': float(optimizer_config['encoder_lr'])},
+             'weight_decay': 0.0, 'lr': float(encoder_lr)},
             {'params': [p for n, p in other_modules_parameters if not any(nd in n for nd in no_decay)],
-             'weight_decay': optimizer_config['weight_decay'], 'lr': float(optimizer_config['lr'])},
+             'weight_decay': optimizer_config['weight_decay'], 'lr': float(lr)},
             {'params': [p for n, p in other_modules_parameters if any(nd in n for nd in no_decay)],
-             'weight_decay': 0.0,     'lr': float(optimizer_config['lr'])}
+             'weight_decay': 0.0,     'lr': float(lr)}
         ]
         optimizer = OPTIMIZERS[optimizer_config['type']](optimizer_grouped_parameters,
-                                                         lr=float(optimizer_config['lr']),
-                                                         weight_decay=optimizer_config['weight_decay'])
+                                                         lr=float(lr),
+                                                         weight_decay=weight_decay)
 
         scheduler_type = optimizer_config.get('lr_scheduler', None)
         if scheduler_type:
@@ -291,8 +295,7 @@ class BaseController:
             if scheduler_type == 'linear_schedule_with_warmup':
                 tol_steps = len(train_dataset['dataloader']) * self.config['trainer']['epoch']
                 scheduler = get_linear_schedule_with_warmup(optimizer=optimizer,
-                                                            num_warmup_steps=int(
-                                                                tol_steps * optimizer_config['warmup']),
+                                                            num_warmup_steps=int(tol_steps * warmup),
                                                             num_training_steps=tol_steps)
         else:
             scheduler = None
@@ -363,12 +366,14 @@ class BaseController:
             raise ex
 
         app = FastAPI()
+        port = self.config.get('port', 8080)
+        url = self.config.get('url', '/innerapi/ai/python/agent')
 
         @app.get("/health.json")
         def health():
             return {"status": "UP"}
 
-        @app.post('/innerapi/ai/python/agent')
+        @app.post(url)
         async def default_interface(input_data: InputData):
             try:
                 result = inference.service_inference(dataset, input_data.dict())
@@ -382,7 +387,7 @@ class BaseController:
                 'msg': 'OK',
                 'data': result
             }
-        uvicorn.run(app, host='0.0.0.0', port=8080)
+        uvicorn.run(app, host='0.0.0.0', port=port)
 
     def predict(self, example):
         """

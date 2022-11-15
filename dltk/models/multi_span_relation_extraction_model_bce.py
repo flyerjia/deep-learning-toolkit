@@ -59,7 +59,7 @@ class MultiSREModel(BaseModel):
                 'logits': logits
             }
 
-    def get_metrics(self, phase, forward_output, forward_target, dataset=None):
+    def get_metrics(self, phase, predictions, dataset):
         def get_relations(data):
             relations = {}
             entities = set()
@@ -86,7 +86,6 @@ class MultiSREModel(BaseModel):
                         entities.add((sub_tail_start_idx, sub_tail_end_idx, sub_tail['mention']))
 
             return relations, list(entities)
-        predictions = self.get_predictions(forward_output, forward_target, dataset)
         predictions, pred_entities = get_relations(predictions)
         targets, target_entities = get_relations(dataset.data)
         results = {}
@@ -103,121 +102,117 @@ class MultiSREModel(BaseModel):
         logger_output('info', 'metrics F1:{}'.format(results['F1']))
         return results
 
-    def get_predictions(self, forward_output, forward_target, dataset):
+    def get_predictions(self, forward_output, forward_target, dataset, start_index=0):
         predictions = []
         idx = 0
-        for batch_output in forward_output['logits']:
-            for each_output in batch_output:
-                target_data = dataset.data[idx]
-                idx += 1
-                text = target_data['text']
 
-                entity_dict = {}
-                head2head_set = set()
-                tail2tail_set = set()
-                for start_index, end_index, label in zip(*np.where(each_output > 0)):
-                    start_index = start_index.item()
-                    end_index = end_index.item()
-                    label = label.item()
-                    # 过滤掉[CLS]位置和超过文本长度的位置
-                    if start_index == 0 or end_index == 0 or start_index > len(text) or end_index > len(text):
+        for each_output in forward_output['logits']:
+            target_data = dataset.data[idx + start_index]
+            idx += 1
+            text = target_data['text']
+
+            entity_dict = {}
+            head2head_set = set()
+            tail2tail_set = set()
+            for start_index, end_index, label in zip(*np.where(each_output > 0)):
+                start_index = start_index.item()
+                end_index = end_index.item()
+                label = label.item()
+                # 过滤掉[CLS]位置和超过文本长度的位置
+                if start_index == 0 or end_index == 0 or start_index > len(text) or end_index > len(text):
+                    continue
+                start_index -= 1
+                end_index -= 1
+                label_type, label = dataset.id2label[label].split('_')
+                if label_type == 'EH2ET':
+                    if end_index < start_index:
                         continue
-                    start_index -= 1
-                    end_index -= 1
-                    label_type, label = dataset.id2label[label].split('_')
-                    if label_type == 'EH2ET':
-                        if end_index < start_index:
-                            continue
-                        entity = (text[start_index:end_index + 1], start_index, end_index)
-                        entity_dict.setdefault(start_index, []).append(entity)
-                    elif label_type == 'H2H':
-                        head2head_set.add((start_index, end_index, label))
-                    else:  # 'T2T
-                        tail2tail_set.add((start_index, end_index, label))
-                relations_dict = {}
-                for start_index, end_index, label in head2head_set:
-                    sub_entity_list = entity_dict.get(start_index, [])
-                    obj_entity_list = entity_dict.get(end_index, [])
-                    for sub in sub_entity_list:
-                        for obj in obj_entity_list:
-                            sub_text, sub_start_index, sub_end_index = sub
-                            obj_text, obj_start_index, obj_end_index = obj
-                            if (sub_end_index, obj_end_index, label) in tail2tail_set:
-                                relations_dict.setdefault(label, []).append((sub, label, obj))
-                relation_of_mention = []
-                # 先看标签为3 上下位关系的
-                for (sub, label, obj) in relations_dict.get('3', []):
-                    temp_result = {
-                        'head': {
-                            'mention': sub[0],
-                            'start_idx': sub[1],
-                            'end_idx': sub[2] + 1
-                        },
-                        'relation': 3,
-                        'tail': {
-                            'mention': obj[0],
-                            'start_idx': obj[1],
-                            'end_idx': obj[2] + 1
-                        }
+                    entity = (text[start_index:end_index + 1], start_index, end_index)
+                    entity_dict.setdefault(start_index, []).append(entity)
+                elif label_type == 'H2H':
+                    head2head_set.add((start_index, end_index, label))
+                else:  # 'T2T
+                    tail2tail_set.add((start_index, end_index, label))
+            relations_dict = {}
+            for start_index, end_index, label in head2head_set:
+                sub_entity_list = entity_dict.get(start_index, [])
+                obj_entity_list = entity_dict.get(end_index, [])
+                for sub in sub_entity_list:
+                    for obj in obj_entity_list:
+                        sub_text, sub_start_index, sub_end_index = sub
+                        obj_text, obj_start_index, obj_end_index = obj
+                        if (sub_end_index, obj_end_index, label) in tail2tail_set:
+                            relations_dict.setdefault(label, []).append((sub, label, obj))
+            relation_of_mention = []
+            # 先看标签为3 上下位关系的
+            for (sub, label, obj) in relations_dict.get('3', []):
+                temp_result = {
+                    'head': {
+                        'mention': sub[0],
+                        'start_idx': sub[1],
+                        'end_idx': sub[2] + 1
+                    },
+                    'relation': 3,
+                    'tail': {
+                        'mention': obj[0],
+                        'start_idx': obj[1],
+                        'end_idx': obj[2] + 1
                     }
-                    relation_of_mention.append(temp_result)
+                }
+                relation_of_mention.append(temp_result)
 
-                # 再看标签2 条件关系的
-                used_relations = set()
-                for relation_i in relations_dict.get('2', []):
-                    for relation_j in relations_dict.get('2', []):
-                        if relation_i == relation_j or relation_i[0] != relation_j[0]:
-                            continue
-                        if (relation_i[2], '1', relation_j[2]) in relations_dict.get('1', []):
-                            used_relations.add((relation_i[2], '1', relation_j[2]))
-                            temp_result = {
+            # 再看标签2 条件关系的
+            used_relations = set()
+            for relation_i in relations_dict.get('2', []):
+                for relation_j in relations_dict.get('2', []):
+                    if relation_i == relation_j or relation_i[0] != relation_j[0]:
+                        continue
+                    if (relation_i[2], '1', relation_j[2]) in relations_dict.get('1', []):
+                        used_relations.add((relation_i[2], '1', relation_j[2]))
+                        temp_result = {
+                            'head': {
+                                'mention': relation_i[0][0],
+                                'start_idx': relation_i[0][1],
+                                'end_idx': relation_i[0][2] + 1
+                            },
+                            'relation': 2,
+                            'tail': {
+                                'type': 'relation',
                                 'head': {
-                                    'mention': relation_i[0][0],
-                                    'start_idx': relation_i[0][1],
-                                    'end_idx': relation_i[0][2] + 1
+                                    'mention': relation_i[2][0],
+                                    'start_idx': relation_i[2][1],
+                                    'end_idx': relation_i[2][2] + 1
                                 },
-                                'relation': 2,
+                                'relation': 1,
                                 'tail': {
-                                    'type': 'relation',
-                                    'head': {
-                                        'mention': relation_i[2][0],
-                                        'start_idx': relation_i[2][1],
-                                        'end_idx': relation_i[2][2] + 1
-                                    },
-                                    'relation': 1,
-                                    'tail': {
-                                        'mention': relation_j[2][0],
-                                        'start_idx': relation_j[2][1],
-                                        'end_idx': relation_j[2][2] + 1
-                                    }
+                                    'mention': relation_j[2][0],
+                                    'start_idx': relation_j[2][1],
+                                    'end_idx': relation_j[2][2] + 1
                                 }
                             }
-                            relation_of_mention.append(temp_result)
-                # 最后处理标签1 因果关系的
-                for (sub, label, obj) in set(relations_dict.get('1', [])) - used_relations:
-                    temp_result = {
-                        'head': {
-                            'mention': sub[0],
-                            'start_idx': sub[1],
-                            'end_idx': sub[2] + 1
-                        },
-                        'relation': 1,
-                        'tail': {
-                            'mention': obj[0],
-                            'start_idx': obj[1],
-                            'end_idx': obj[2] + 1
                         }
+                        relation_of_mention.append(temp_result)
+            # 最后处理标签1 因果关系的
+            for (sub, label, obj) in set(relations_dict.get('1', [])) - used_relations:
+                temp_result = {
+                    'head': {
+                        'mention': sub[0],
+                        'start_idx': sub[1],
+                        'end_idx': sub[2] + 1
+                    },
+                    'relation': 1,
+                    'tail': {
+                        'mention': obj[0],
+                        'start_idx': obj[1],
+                        'end_idx': obj[2] + 1
                     }
-                    relation_of_mention.append(temp_result)
-                predictions.append({
-                    'text': text,
-                    'relation_of_mention': relation_of_mention
-                })
+                }
+                relation_of_mention.append(temp_result)
+            predictions.append({
+                'text': text,
+                'relation_of_mention': relation_of_mention
+            })
         return predictions
-
-    def save_predictions(self, forward_output, forward_target, dataset, file_path):
-        predictions = self.get_predictions(forward_output, forward_target, dataset)
-        write_json(file_path, predictions)
 
 
 model = MultiSREModel

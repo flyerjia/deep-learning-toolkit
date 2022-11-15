@@ -223,7 +223,7 @@ def write_yaml(file_path, data):
     write yaml data to a file
     """
     with open(file_path, 'w', encoding='utf-8') as fn:
-        yaml.safe_dump(data, fn, sort_keys=False)
+        yaml.safe_dump(data, fn, sort_keys=False, allow_unicode=True)
 
 
 def fine_grade_tokenize(raw_text, tokenizer):

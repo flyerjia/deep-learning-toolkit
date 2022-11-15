@@ -23,22 +23,27 @@ class BaseInference:
             if value.dim() == 1:
                 value = torch.unsqueeze(value, 0)
             example_instance[name] = value.to(self.device)
-        forward_output = {}
-        forward_target = {}
+        predictions = []
+        start_index = 0
         with torch.no_grad():
             example_instance['phase'] = 'inference'
             output = self.model(**example_instance)
+            forward_output = {}
+            forward_target = {}
             for data_name, data_value in example_instance.items():
                 if not isinstance(data_value, torch.Tensor):
                     continue
-                data_value = data_value.cpu().numpy()
-                forward_target.setdefault(data_name, []).append(data_value)            
+                data_value = data_value.detach().cpu().numpy()
+                forward_target[data_name] = data_value
             for data_name, data_value in output.items():
                 if not isinstance(data_value, torch.Tensor):
                     continue
                 data_value = data_value.detach().cpu().numpy()
-                forward_output.setdefault(data_name, []).append(data_value)
-        prediction = self.model.get_predictions(forward_output, forward_target, dataset)[0]
+                forward_output[data_name] = data_value
+            batch_predictions = self.model.get_predictions(forward_output, forward_target, dataset, start_index)
+            predictions.extend(batch_predictions)
+            start_index += max([forward_target[data_name].shape[0] for data_name in forward_target.keys()])
+        prediction = predictions[0]
         example.update(prediction)
         return example
 
@@ -50,25 +55,29 @@ class BaseInference:
                                  sampler=data_sampler,
                                  batch_size=batch_size,
                                  collate_fn=dataset.collate_fn)
-        forward_output = {}
-        forward_target = {}
+        predictions = []
+        start_index = 0
         with torch.no_grad():
             for step, batch_data in enumerate(data_loader):
                 batch_data = {data_name: data_value.to(self.device) for data_name, data_value in batch_data.items()}
                 batch_data['phase'] = 'inference'
                 output = self.model(**batch_data)
+                forward_output = {}
+                forward_target = {}
                 for data_name, data_value in batch_data.items():
                     if not isinstance(data_value, torch.Tensor):
                         continue
-                    data_value = data_value.cpu().numpy()
-                    forward_target.setdefault(data_name, []).append(data_value)                
+                    data_value = data_value.detach().cpu().numpy()
+                    forward_target[data_name] = data_value
                 for data_name, data_value in output.items():
                     if not isinstance(data_value, torch.Tensor):
                         continue
                     data_value = data_value.detach().cpu().numpy()
-                    forward_output.setdefault(data_name, []).append(data_value)
+                    forward_output[data_name] = data_value
+                batch_predictions = self.model.get_predictions(forward_output, forward_target, dataset, start_index)
+                predictions.extend(batch_predictions)
+                start_index += max([forward_target[data_name].shape[0] for data_name in forward_target.keys()])
                 logger_output('info', 'batch data {}/{} inference done'.format(step + 1, len(data_loader)))
-        predictions = self.model.get_predictions(forward_output, forward_target, dataset)
         logger_output('info', 'inference done')
         write_json(self.kwargs['inference_output'], predictions)
 
