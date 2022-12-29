@@ -4,6 +4,8 @@
 @Time    :   2022/08/08 15:12:39
 @Author  :   jiangjiajia
 """
+import copy
+
 import numpy as np
 import torch
 
@@ -104,7 +106,7 @@ class NERBIOModel(BaseModel):
         predictions = []
         idx = 0
         for each_output in forward_output['logits']:  # [max_len, num_labels]
-            target_data = dataset.data[idx + start_index]
+            target_data = copy.deepcopy(dataset.data[idx + start_index])
             idx += 1
             text = target_data['text'][:dataset.config['max_seq_len']]
             preds = np.argmax(each_output, axis=1)  # [max_len]

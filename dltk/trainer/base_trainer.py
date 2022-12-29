@@ -144,7 +144,8 @@ class BaseTrainer:
                 if self.rank == 0 and epoch > 1 and epoch in self.all_eval_info.keys() and self.kwargs['model_sort_key'] in self.all_eval_info[epoch].keys() and \
                         epoch - best_model_epoch >= 3 * self.kwargs.get('eval_epoch', 1):  # 当3次eval后，指标持续下降，则早停
                     early_stop_flag += 1
-                dist.all_reduce(early_stop_flag, op=dist.ReduceOp.SUM)
+                if self.ddp_flag:
+                    dist.all_reduce(early_stop_flag, op=dist.ReduceOp.SUM)
                 if early_stop_flag > 0:
                     break
         # 在不设置早停的情况下，保存最后一次的模型
@@ -201,14 +202,13 @@ class BaseTrainer:
                 if self.ddp_flag:
                     batch_predictions = self.model.module.get_predictions(forward_output, forward_target, dataset['dataset'], start_index)
                 else:
-                    batch_predictions = self.model.get_predictions( forward_output, forward_target, dataset['dataset'], start_index)
+                    batch_predictions = self.model.get_predictions(forward_output, forward_target, dataset['dataset'], start_index)
                 predictions.extend(batch_predictions)
                 start_index += max([forward_target[data_name].shape[0] for data_name in forward_target.keys()])
                 step_end_time = time.time()
                 step_used_time = step_end_time - step_begin_time
                 logger_output('info', 'rank:{} epoch:{} eval data step:{}/{} time:{:.6f}'.format(self.rank, epoch,
                               step + 1, len(dataset['dataloader']), step_used_time), self.rank)
-
         if self.ddp_flag:
             metrics_output = self.model.module.get_metrics(phase, predictions, dataset['dataset'])
         else:
@@ -262,7 +262,7 @@ class BaseTrainer:
                     data_value = data_value.detach().cpu().numpy()
                     forward_output[data_name] = data_value
                 if self.ddp_flag:
-                    batch_predictions = self.model.module.get_predictions( forward_output, forward_target, dataset['dataset'], start_index)
+                    batch_predictions = self.model.module.get_predictions(forward_output, forward_target, dataset['dataset'], start_index)
                 else:
                     batch_predictions = self.model.get_predictions(forward_output, forward_target, dataset['dataset'], start_index)
                 predictions.extend(batch_predictions)

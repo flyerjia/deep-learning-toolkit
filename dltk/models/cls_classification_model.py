@@ -4,6 +4,8 @@
 @Time    :   2022/08/12 17:42:29
 @Author  :   jiangjiajia
 """
+import copy
+
 import numpy as np
 import torch
 from sklearn.metrics import classification_report, f1_score
@@ -43,7 +45,7 @@ class CLSClassificationModel(BaseModel):
         predictions = []
         idx = 0
         for each_output in forward_output['logits']:
-            target_data = dataset.data[idx + start_index]
+            target_data = copy.deepcopy(dataset.data[idx + start_index])
             content = target_data['content']
             idx += 1
             each_output = np.exp(each_output) / np.sum(np.exp(each_output))

@@ -4,6 +4,8 @@
 @Time    :   2022/07/28 10:31:58
 @Author  :   jiangjiajia
 """
+import copy
+
 import numpy as np
 import torch
 
@@ -102,12 +104,12 @@ class MultiSREModel(BaseModel):
         logger_output('info', 'metrics F1:{}'.format(results['F1']))
         return results
 
-    def get_predictions(self, forward_output, forward_target, dataset, start_index=0):
+    def get_predictions(self, forward_output, forward_target, dataset, data_start_index=0):
         predictions = []
         idx = 0
 
         for each_output in forward_output['logits']:
-            target_data = dataset.data[idx + start_index]
+            target_data = copy.deepcopy(dataset.data[idx + data_start_index])
             idx += 1
             text = target_data['text']
 

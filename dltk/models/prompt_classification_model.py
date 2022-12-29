@@ -4,6 +4,8 @@
 @Time    :   2022/08/11 11:41:59
 @Author  :   jiangjiajia
 """
+import copy
+
 import numpy as np
 import torch
 from sklearn.metrics import classification_report
@@ -45,7 +47,7 @@ class PromptClassificationModel(BaseModel):
         idx = 0
 
         for each_output in forward_output['logits']:
-            target_data = dataset.data[idx + start_index]
+            target_data = copy.deepcopy(dataset.data[idx + start_index])
             text = target_data['text']
             question = target_data['question']
             idx += 1
