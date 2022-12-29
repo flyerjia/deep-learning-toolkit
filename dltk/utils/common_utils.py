@@ -91,21 +91,19 @@ def logger_output(msg_type, msg, rank=0, only_ms_out=True):
             logger.warning(msg)
 
 
-def get_device(use_gpu=False, rank=0):
-    """
-    暂时只支持单卡
-    """
+def get_device(use_gpu=False, rank=0, gpu_ids=[]):
     if use_gpu:
         if not torch.cuda.is_available():
-            logger_output('warning', 'GPU not available', rank)
+            logger_output('warning', 'GPU not available and load CPU device', rank)
             device = torch.device('cpu')
         else:
             gpu_nums = torch.cuda.device_count()
             if 0 <= rank < gpu_nums:
-                logger_output('info', 'use GPU: {}'.format(str(rank)), rank, False)
+                logger_output('info', 'use GPU: {}'.format(str(gpu_ids[rank])), rank, False)
                 device = torch.device('cuda:' + str(rank))
             else:
-                logger_output('warning', 'argument gpu_id not correct', rank, False)
+                logger_output('warning', 'argument gpu_id not correct and load CPU device', rank, False)
+                device = torch.device('cpu')
 
     else:
         device = torch.device('cpu')

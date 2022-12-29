@@ -24,12 +24,13 @@ from ..utils.common_utils import (OPTIMIZERS, get_device, logger_output,
 
 
 class BaseController:
-    def __init__(self, rank, ddp_flag, cmd, config):
+    def __init__(self, rank, gpu_ids, ddp_flag, cmd, config):
         self.rank = rank
+        self.gpu_ids = sorted([int(gpu_id) for gpu_id in gpu_ids.split(',') if gpu_id != ''])
         self.ddp_flag = ddp_flag
         self.cmd = cmd
         self.config = config
-        self.device = get_device(config.get('use_gpu', False), rank)
+        self.device = get_device(config.get('use_gpu', False), rank, self.gpu_ids)
 
     def get_data(self, phase, data_path, data_type):
         if not data_path:
@@ -226,6 +227,7 @@ class BaseController:
             # 加载权重
             weight_path = model_config.get('weight_path', None)
             if weight_path:
+                logger_output('info', 'load weights from [{}]'.format(weight_path), self.rank)
                 weights = torch.load(weight_path, map_location='cpu')
                 if isinstance(weights, Dict):
                     load_model_info = model.load_state_dict(weights)
@@ -234,8 +236,8 @@ class BaseController:
                 else:
                     logger_output('error', 'weights can not been loaded', self.rank)
                     raise ValueError('weights can not been loaded')
-                logger_output('warning', 'missing_keys: {}'.format(load_model_info['missing_keys']), self.rank)
-                logger_output('warning', 'unexpected_keys: {}'.format(load_model_info['unexpected_keys']), self.rank)
+                logger_output('warning', 'missing_keys: {}'.format(load_model_info.missing_keys), self.rank)
+                logger_output('warning', 'unexpected_keys: {}'.format(load_model_info.unexpected_keys), self.rank)
             model = model.to(self.device)
             if self.ddp_flag:
                 model = DDP(model, device_ids=[self.rank], find_unused_parameters=True)

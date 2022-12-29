@@ -53,6 +53,8 @@ def main(cmd=None, config=None, config_path=None):
         else:
             gpu_ids = str(gpu_ids)
         os.environ['CUDA_VISIBLE_DEVICES'] = gpu_ids
+    else:
+        gpu_ids = ''
 
     try:
         import torch
@@ -63,13 +65,13 @@ def main(cmd=None, config=None, config_path=None):
     # 暂时只支持训练阶段并行
     if cmd in ['training', 'training_cv'] and n_gpus >= 2:
         ddp_flag = True
-        mp.spawn(run, args=(n_gpus, ddp_flag, cmd, config), nprocs=n_gpus, join=True)
+        mp.spawn(run, args=(n_gpus, gpu_ids, ddp_flag, cmd, config), nprocs=n_gpus, join=True)
     else:
         ddp_flag = False
-        run(0, n_gpus, ddp_flag, cmd, config)
+        run(0, n_gpus, gpu_ids, ddp_flag, cmd, config)
 
 
-def run(rank, n_gpus, ddp_flag, cmd, config):
+def run(rank, n_gpus, gpu_ids, ddp_flag, cmd, config):
     if ddp_flag:
         try:
             import torch.distributed as dist
@@ -83,7 +85,7 @@ def run(rank, n_gpus, ddp_flag, cmd, config):
         from .utils.common_utils import init_logger, logger_output, set_seed
     except Exception as ex:
         raise ex
-    
+
     try:
         import transformers
         transformers.logging.set_verbosity_error()
@@ -102,7 +104,7 @@ def run(rank, n_gpus, ddp_flag, cmd, config):
     except Exception as ex:
         logger_output('error', '{} controller not existed or import error'.format(controller_type), rank)
         raise ex
-    controller = controller(rank, ddp_flag, cmd, config)
+    controller = controller(rank, gpu_ids, ddp_flag, cmd, config)
     controller.run()
 
     if ddp_flag:
