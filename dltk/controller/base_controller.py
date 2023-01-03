@@ -31,6 +31,9 @@ class BaseController:
         self.cmd = cmd
         self.config = config
         self.device = get_device(config.get('use_gpu', False), rank, self.gpu_ids)
+        if torch.cuda.is_available():
+            torch.cuda.set_device(self.device)
+            torch.cuda.empty_cache()
 
     def get_data(self, phase, data_path, data_type):
         if not data_path:
