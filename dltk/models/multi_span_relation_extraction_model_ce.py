@@ -1,7 +1,7 @@
 # -*- encoding: utf-8 -*-
 """
-@File    :   multi_span_relation_extraction_model_bce.py
-@Time    :   2022/07/28 10:31:58
+@File    :   multi_span_relation_extraction_model_ce.py
+@Time    :   2022/08/12 10:38:49
 @Author  :   jiangjiajia
 """
 import copy
@@ -11,7 +11,8 @@ import torch
 
 from ..metrics.metric import compute_f1
 from ..modules.biaffine import Biaffine
-from ..utils.common_utils import ENCODERS, logger_output, write_json
+from ..utils.common_utils import (ENCODERS, logger_output, numpy_softmax,
+                                  write_json)
 from .base_model import BaseModel
 
 
@@ -40,7 +41,8 @@ class MultiSREModel(BaseModel):
             torch.nn.GELU()
         )
         self.biaffine = Biaffine(self.hidden_size, self.num_labels)
-        self.criterion = torch.nn.BCEWithLogitsLoss(reduction='mean')
+        label_weight = torch.FloatTensor([1.0, 2.0, 3.0, 4.0, 3.0, 3.0, 4.0, 3.0])
+        self.criterion = torch.nn.CrossEntropyLoss(weight=label_weight, reduction='mean')
 
     def forward(self, input_ids, token_type_ids, attention_mask, labels=None, label_mask=None, phase=None, **kwargs):
         encoder_outputs = self.encoder(input_ids=input_ids, token_type_ids=token_type_ids,
@@ -49,7 +51,7 @@ class MultiSREModel(BaseModel):
         key = self.key_layer(encoder_outputs)
         logits = self.biaffine(query, key)
         if phase == 'train' and labels is not None and label_mask is not None:
-            logits = logits[label_mask == 1].view(-1)
+            logits = logits[label_mask == 1].view(-1, self.num_labels)
             labels = labels[label_mask == 1].view(-1)
             loss = self.criterion(logits, labels)
             return {
@@ -116,25 +118,29 @@ class MultiSREModel(BaseModel):
             entity_dict = {}
             head2head_set = set()
             tail2tail_set = set()
-            for start_index, end_index, label in zip(*np.where(each_output > 0)):
-                start_index = start_index.item()
-                end_index = end_index.item()
-                label = label.item()
-                # 过滤掉[CLS]位置和超过文本长度的位置
-                if start_index == 0 or end_index == 0 or start_index > len(text) or end_index > len(text):
-                    continue
-                start_index -= 1
-                end_index -= 1
-                label_type, label = dataset.id2label[label].split('_')
-                if label_type == 'EH2ET':
-                    if end_index < start_index:
+
+            probs = {}
+            each_output = numpy_softmax(each_output)
+            preds = np.argmax(each_output, axis=-1)
+            for i in range(1, min(len(text) + 1, dataset.config['max_seq_len'])):
+                for j in range(1, min(len(text) + 1, dataset.config['max_seq_len'])):
+                    if i == j:
                         continue
-                    entity = (text[start_index:end_index + 1], start_index, end_index)
-                    entity_dict.setdefault(start_index, []).append(entity)
-                elif label_type == 'H2H':
-                    head2head_set.add((start_index, end_index, label))
-                else:  # 'T2T
-                    tail2tail_set.add((start_index, end_index, label))
+                    label = preds[i, j].item()
+                    start_index = i - 1
+                    end_index = j - 1
+                    prob = each_output[i, j, label].item()
+                    probs[(start_index, end_index)] = prob
+                    label_type, label = dataset.id2label[label].split('_')
+                    if label_type == 'EH2ET':
+                        if end_index < start_index:
+                            continue
+                        entity = (text[start_index:end_index + 1], start_index, end_index)
+                        entity_dict.setdefault(start_index, []).append(entity)
+                    elif label_type == 'H2H':
+                        head2head_set.add((start_index, end_index, label))
+                    elif label_type == 'T2T':
+                        tail2tail_set.add((start_index, end_index, label))
             relations_dict = {}
             for start_index, end_index, label in head2head_set:
                 sub_entity_list = entity_dict.get(start_index, [])
@@ -161,6 +167,13 @@ class MultiSREModel(BaseModel):
                         'end_idx': obj[2] + 1
                     }
                 }
+                if self.output_probs:
+                    temp_prob = 0.
+                    temp_prob += probs[(sub[1], sub[2])]
+                    temp_prob += probs[(obj[1], obj[2])]
+                    temp_prob += probs[(sub[1], obj[1])]
+                    temp_prob += probs[(sub[2], obj[2])]
+                    temp_result['prob'] = temp_prob / 4
                 relation_of_mention.append(temp_result)
 
             # 再看标签2 条件关系的
@@ -193,6 +206,18 @@ class MultiSREModel(BaseModel):
                                 }
                             }
                         }
+                        if self.output_probs:
+                            temp_prob = 0.
+                            temp_prob += probs[(relation_i[0][1], relation_i[0][2])]
+                            temp_prob += probs[(relation_i[2][1], relation_i[2][2])]
+                            temp_prob += probs[(relation_j[2][1], relation_j[2][2])]
+                            temp_prob += probs[(relation_i[0][1], relation_i[2][1])]
+                            temp_prob += probs[(relation_i[0][2], relation_i[2][2])]
+                            temp_prob += probs[(relation_i[0][1], relation_j[2][1])]
+                            temp_prob += probs[(relation_i[0][2], relation_j[2][2])]
+                            temp_prob += probs[(relation_i[2][1], relation_j[2][1])]
+                            temp_prob += probs[(relation_i[2][2], relation_j[2][2])]
+                            temp_result['prob'] = temp_prob / 9
                         relation_of_mention.append(temp_result)
             # 最后处理标签1 因果关系的
             for (sub, label, obj) in set(relations_dict.get('1', [])) - used_relations:
@@ -209,6 +234,13 @@ class MultiSREModel(BaseModel):
                         'end_idx': obj[2] + 1
                     }
                 }
+                if self.output_probs:
+                    temp_prob = 0.
+                    temp_prob += probs[(sub[1], sub[2])]
+                    temp_prob += probs[(obj[1], obj[2])]
+                    temp_prob += probs[(sub[1], obj[1])]
+                    temp_prob += probs[(sub[2], obj[2])]
+                    temp_result['prob'] = temp_prob / 4
                 relation_of_mention.append(temp_result)
             predictions.append({
                 'text': text,

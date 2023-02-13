@@ -7,7 +7,7 @@ gpu_ids: 1
 
 dataset:
   data_path: "data/test.txt" # 若为空，则为server_inference
-  type: json # json/text  json 是整个文件为一个json  text是每行为一个json
+  type: json # json/jsonl  json 是整个文件为一个json  jsonl是每行为一个json
   reader:
     type: XXX_reader
     tokenizer: XXX_tokenizer
@@ -16,11 +16,10 @@ dataset:
     max_seq_len: 512
 
 # model: # 先创建模型，然后加载权重
-#   # 模型参数可随意添加 
+#   # 模型参数可随意添加
 #   type: XXX_model
 #   encoder: # encoder主要针对加载预训练模型和进行分层学习率训练
 #     type: bert
-#     config_path: "pretrain_model/config.json"
 #     pretrained_model_dir: "pretrain_model"
 #   weight_path: "pretrain_model/model.pth" # 若存在则加载权重
 

@@ -14,6 +14,8 @@ class BaseReader(Dataset):
         self.phase = phase  # trian dev test
         self.data = data
         self.config = config
+        for name, value in config.items():
+            setattr(self, name, value)
 
     def convert_item(self, each_data):
         """

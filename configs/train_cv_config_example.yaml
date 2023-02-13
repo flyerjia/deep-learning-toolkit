@@ -9,7 +9,7 @@ gpu_ids: 1
 dataset:
   train: # 若多卡，只有训练阶段进行并行
     data_path: "data/train.txt"
-    type: json # json/text  json 是整个文件为一个json  text是每行为一个json
+    type: json # json/jsonl  json 是整个文件为一个json  jsonl是每行为一个json
     reader:
       type: XXX_reader
       tokenizer: XXX_tokenizer
@@ -26,7 +26,6 @@ model:
   type: XXX_model
   encoder: # encoder主要针对加载预训练模型和进行分层学习率训练
     type: bert
-    config_path: "pretrain_model/config.json"
     pretrained_model_dir: "pretrain_model"
   weight_path: "pretrain_model/model.pth" # 若存在则加载权重
 
@@ -44,13 +43,13 @@ trainer:
   eval_epoch: 1
   test_epoch: 1
   model_sort_key: F1
-  early_stopping: True # 是否早停
+  early_stopping: False # 是否早停
   max_model_num: 5 # 最优模型保存数量
-  only_save_model_weight: False # 是否只保存模型的权重  
+  only_save_model_weight: False # 是否只保存模型的权重
   use_fp16: False # 是否开启混合精度训练
   use_fgm: False # 是否使用对抗训练FGM
   use_ema: False # 是否使用EMA
   output_path: "training_output"
-  save_evaluations: False # 是否保存验证集指标
-  save_checkpoints: False # 是否保存模型
-  save_predictions: False # 是否保存预测结果
+  save_evaluations: True # 是否保存验证集指标
+  save_checkpoints: True # 是否保存模型
+  save_predictions: True # 是否保存预测结果

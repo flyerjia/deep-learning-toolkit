@@ -19,15 +19,14 @@ class YourReader(BaseReader):
         """
         pass
     def __len__(self):
-        """
-        必有
-        """
-        pass
+        return len(self.data)
     def collate_fn(self, batch_data):
         """
         必有
         """
         pass
+
+reader = YourReader // 一定要有
 ```
 ```python
 class YourModel(BaseModel):
@@ -56,7 +55,7 @@ class YourModel(BaseModel):
         """
         raise NotImplementedError
 
-    def get_predictions(self, forward_output, forward_target, dataset, start_index=0):
+    def get_predictions(self, forward_output, forward_target, dataset, batch_start_index=0):
         """
         计算预测结果，参数固定，对每个batch的数据进行解码
 
@@ -64,7 +63,7 @@ class YourModel(BaseModel):
             forward_output (Dict): {name:batch_data} batch_data: numpy
             forward_target (Dict): {name:batch_data} batch_data: numpy
             dataset (Dataset): dataset
-            start_index (int): 对于dataset中，对应的数据起始位置
+            batch_start_index (int): 对于dataset中，对应的数据起始位置
 
         Raises:
             NotImplementedError: _description_
@@ -76,6 +75,8 @@ class YourModel(BaseModel):
         保存预测结果，参数固定，可根据需求自行设置保存格式
         """
         write_json(file_path, predictions)
+
+model = YourModel // 一定要有
 ```
 
 ```python

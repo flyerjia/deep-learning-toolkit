@@ -77,7 +77,7 @@ def run(rank, n_gpus, gpu_ids, ddp_flag, cmd, config):
             import torch.distributed as dist
         except Exception as ex:
             raise ex
-        os.environ['MASTER_ADDR'] = 'localhost'
+        os.environ['MASTER_ADDR'] = '127.0.0.1'
         os.environ['MASTER_PORT'] = '12355'
         dist.init_process_group("nccl", rank=rank, world_size=n_gpus)
 

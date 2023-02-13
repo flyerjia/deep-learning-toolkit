@@ -7,6 +7,8 @@
 import copy
 import importlib
 import os
+import time
+import shutil
 from typing import Dict
 
 import torch
@@ -39,7 +41,7 @@ class BaseController:
         if not data_path:
             logger_output('error', '{} data path not configured'.format(phase), self.rank)
             raise ValueError('{} data path not configured'.format(phase))
-        if data_type == 'text':
+        if data_type == 'jsonl':
             data = read_jsons(data_path)
         elif data_type == 'json':
             data = read_json(data_path)
@@ -381,7 +383,9 @@ class BaseController:
         @app.post(url)
         async def default_interface(input_data: InputData):
             try:
+                logger_output('info', 'intput data:{}'.format(input_data.dict()))
                 result = inference.service_inference(dataset, input_data.dict())
+                logger_output('info', 'output data:{}'.format(result))
             except Exception as ex:
                 return {
                     'code': -1,
@@ -408,8 +412,11 @@ class BaseController:
         # 把config复制一遍到输出目录中，用作查看提醒
         if 'trainer' in self.config and self.rank == 0:
             output_path = self.config['trainer'].get('output_path', 'output')
-            if not os.path.exists(output_path):
-                os.mkdir(output_path)
+            if os.path.exists(output_path):
+                time_ = time.strftime('%Y_%m_%d_%H_%M_%S', time.localtime())
+                output_path_bk = output_path + '_' + time_ + '_bk'
+                shutil.move(output_path, output_path_bk)
+            os.makedirs(output_path)
             write_yaml(os.path.join(output_path, 'config_bk.yaml'), self.config)
         cmd_func = getattr(self, self.cmd)
         cmd_func()

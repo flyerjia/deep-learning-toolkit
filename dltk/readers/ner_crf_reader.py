@@ -48,7 +48,7 @@ class NERBIOReader(BaseReader):
             if start_idx < self.config['max_seq_len'] - 2 and end_idx < self.config['max_seq_len'] - 2:
                 start_idx, end_idx, type = entity['start_idx'], entity['end_idx'], entity['type']
                 labels = label_data(labels, start_idx + 1, end_idx + 1, type)
-        label_ids = [-100] * self.config['max_seq_len']
+        label_ids = [0] * self.config['max_seq_len']
         for idx in range(min(len(text), self.config['max_seq_len'] - 1)):
             idx += 1
             label_ids[idx] = self.label2id[labels[idx]]

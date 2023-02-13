@@ -21,7 +21,6 @@ dataset:
 #   type: XXX_model
 #   encoder: # encoder主要针对加载预训练模型和进行分层学习率训练
 #     type: bert
-#     config_path: "pretrain_model/config.json"
 #     pretrained_model_dir: "pretrain_model"
 #   weight_path: "pretrain_model/model.pth" # 若存在则加载权重
 

@@ -9,9 +9,9 @@ gpu_ids: 1
 dataset:
   train:
     data_path: "train.json" # 训练集路径
-    type: json  # json/text
+    type: json  # json/jsonl
     reader:
-      type: multi_span_relation_extraction_reader_bce
+      type: multi_span_relation_extraction_reader_ce
       tokenizer: bert_tokenizer
       vocab_path: "pretrain_models" # 预训练模型路径
       padding: max_length
@@ -23,7 +23,7 @@ dataset:
     data_path: "testA.json" # 测试集路径
 
 model:
-  type: multi_span_relation_extraction_model_bce
+  type: multi_span_relation_extraction_model_ce
   num_labels: 7
   hidden_size: 150
   encoder:

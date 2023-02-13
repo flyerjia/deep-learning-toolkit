@@ -41,11 +41,11 @@ class CLSClassificationModel(BaseModel):
                 'logits': logits
             }
 
-    def get_predictions(self, forward_output, forward_target, dataset, start_index=0):
+    def get_predictions(self, forward_output, forward_target, dataset, batch_start_index=0):
         predictions = []
         idx = 0
         for each_output in forward_output['logits']:
-            target_data = copy.deepcopy(dataset.data[idx + start_index])
+            target_data = copy.deepcopy(dataset.data[idx + batch_start_index])
             content = target_data['content']
             idx += 1
             each_output = np.exp(each_output) / np.sum(np.exp(each_output))

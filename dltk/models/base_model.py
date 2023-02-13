@@ -37,7 +37,7 @@ class BaseModel(nn.Module):
         """
         raise NotImplementedError
 
-    def get_predictions(self, forward_output, forward_target, dataset, start_index=0):
+    def get_predictions(self, forward_output, forward_target, dataset, batch_start_index=0):
         """
         计算预测结果，参数固定，对每个batch的数据进行解码
 
@@ -45,7 +45,7 @@ class BaseModel(nn.Module):
             forward_output (Dict): {name:batch_data} batch_data: numpy
             forward_target (Dict): {name:batch_data} batch_data: numpy
             dataset (Dataset): dataset
-            start_index (int): 对于dataset中，对应的数据起始位置
+            batch_start_index (int): 对于dataset中，对应的数据起始位置
 
         Raises:
             NotImplementedError: _description_

@@ -34,7 +34,7 @@ class OIEGenerationModel(BaseModel):
                 'logits': outputs.logits
             }
 
-    def get_predictions(self, forward_output, forward_target, dataset, start_index=0):
+    def get_predictions(self, forward_output, forward_target, dataset, batch_start_index=0):
         predictions = []
         idx = 0
         device = next(self.t5_model.parameters()).device
@@ -45,7 +45,7 @@ class OIEGenerationModel(BaseModel):
                                          do_sample=False, max_new_tokens=256)
         outputs = dataset.tokenizer.batch_decode(outputs, skip_special_tokens=True)
         for each_output in outputs:
-            data = copy.deepcopy(dataset.data[idx + start_index])
+            data = copy.deepcopy(dataset.data[idx + batch_start_index])
             idx += 1
             pred_open_spo_list = []
             spo_list = each_output.split(';')
