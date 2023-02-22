@@ -57,7 +57,6 @@ class CLSClassificationModel(BaseModel):
                 target_data['pred_label'].append(pred)
                 target_data['pred_label_prob'].append(each_output[pred_id].item())
             # 默认在大于0.5中取概率最高的那个
-            # import pdb;pdb.set_trace()
             # max_idx = -1
             # max_prob = -1
             # for index, label_prob in enumerate(target_data['pred_label_prob']):
@@ -67,9 +66,8 @@ class CLSClassificationModel(BaseModel):
             # if max_idx != -1:
             #     target_data['pred_label'] = [target_data['pred_label'][max_idx]]
             #     target_data['pred_label_prob'] = [target_data['pred_label_prob'][max_idx]]
-
             if len(target_data['pred_label']) == 0:
-                target_data['pred_label'].append('其他证件')
+                target_data['pred_label'].append('其他')
             target_data['pred_label'] = ','.join(target_data['pred_label'])
             predictions.append(target_data)
         return predictions

@@ -16,8 +16,10 @@ import torch.nn as nn
 import yaml
 from scipy.special import expit, softmax
 from torch.optim import AdamW, Adam, SGD
-from transformers import (BertModel, BertTokenizer, DebertaV2Model, ErnieModel,
-                          MegatronBertModel, NezhaModel, T5Tokenizer, T5ForConditionalGeneration)
+from transformers import (
+    BertModel, BertTokenizer, DebertaV2Model, ErnieModel, DonutProcessor, VisionEncoderDecoderModel,
+    MegatronBertModel, NezhaModel, T5Tokenizer, T5ForConditionalGeneration
+)
 
 logger = logging.getLogger(__name__)
 
@@ -28,12 +30,14 @@ ENCODERS = {
     'deberta-v2': DebertaV2Model,
     'ernie': ErnieModel,
     't5': T5ForConditionalGeneration,
+    'donut': VisionEncoderDecoderModel,
     'lstm': nn.LSTM
 }
 
 TOKENIZERS = {
     'bert_tokenizer': BertTokenizer,
-    't5_tokenizer': T5Tokenizer
+    't5_tokenizer': T5Tokenizer,
+    'donut_processor': DonutProcessor
 }
 
 OPTIMIZERS = {
@@ -137,7 +141,7 @@ def write_json(file_path, data):
         fn.write(json.dumps(data, ensure_ascii=False, indent=2))
 
 
-def read_jsons(file_path):
+def read_jsonline(file_path):
     """
     read jsons from file. each line is a json
 
@@ -156,7 +160,7 @@ def read_jsons(file_path):
     return data
 
 
-def write_jsons(file_path, data):
+def write_jsonline(file_path, data):
     """
     write jsons to file
 

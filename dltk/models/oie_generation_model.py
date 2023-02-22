@@ -23,16 +23,14 @@ class OIEGenerationModel(BaseModel):
         self.t5_model = t5_model.from_pretrained(self.encoder.get('pretrained_model_dir', ''))
 
     def forward(self, input_ids, attention_mask, labels=None, phase=None, **kwargs):
-        outputs = self.t5_model(input_ids=input_ids, attention_mask=attention_mask, labels=labels)
         if phase == 'train' and labels is not None:
+            outputs = self.t5_model(input_ids=input_ids, attention_mask=attention_mask, labels=labels)
             return {
                 'loss': outputs.loss,
                 'logits': outputs.logits
             }
         else:
-            return {
-                'logits': outputs.logits
-            }
+            return {}
 
     def get_predictions(self, forward_output, forward_target, dataset, batch_start_index=0):
         predictions = []

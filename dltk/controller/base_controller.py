@@ -14,6 +14,7 @@ from typing import Dict
 import torch
 import torch.distributed as dist
 import uvicorn
+from datasets import load_dataset
 from fastapi import FastAPI
 from sklearn.model_selection import KFold
 from torch.nn.parallel import DistributedDataParallel as DDP
@@ -22,7 +23,7 @@ from torch.utils.data.distributed import DistributedSampler
 from transformers import get_linear_schedule_with_warmup
 
 from ..utils.common_utils import (OPTIMIZERS, get_device, logger_output,
-                                  read_json, read_jsons, write_yaml)
+                                  read_json, read_jsonline, write_yaml)
 
 
 class BaseController:
@@ -42,9 +43,11 @@ class BaseController:
             logger_output('error', '{} data path not configured'.format(phase), self.rank)
             raise ValueError('{} data path not configured'.format(phase))
         if data_type == 'jsonl':
-            data = read_jsons(data_path)
+            data = read_jsonline(data_path)
         elif data_type == 'json':
             data = read_json(data_path)
+        elif data_type == 'images':
+            data = load_dataset(data_path, split=phase)
         else:
             logger_output('error', 'wrong {} data type or {} data type not configured'.format(phase, phase), self.rank)
             raise ValueError('wrong {} data type or {} data type not configured'.format(phase, phase))
@@ -218,7 +221,7 @@ class BaseController:
             logger_output('info', 'inference dataset config not configured', self.rank)
             raise ValueError('inference dataset config not configured')
 
-    def init_model(self):
+    def init_model(self, datasets):
         logger_output('info', 'init model', self.rank)
         model_config = self.config['model']
         model_type = model_config.get('type', None)
@@ -228,6 +231,7 @@ class BaseController:
             except Exception as ex:
                 logger_output('error', '{} model not existed or import error'.format(model_type), self.rank)
                 raise ex
+            model_config['datasets'] = datasets
             model = model(**model_config)
             # 加载权重
             weight_path = model_config.get('weight_path', None)
@@ -256,7 +260,7 @@ class BaseController:
         model_config = self.config.get('model', None)
         inference_model_path = self.config.get('inference_model', None)
         if model_config and not inference_model_path:
-            model = self.init_model()
+            model = self.init_model(datasets=None)
         elif inference_model_path and not model_config:
             model = torch.load(inference_model_path, map_location='cpu')
             model = model.to(self.device)
@@ -326,7 +330,7 @@ class BaseController:
 
     def training(self):
         dataset = self.init_dataset()
-        model = self.init_model()
+        model = self.init_model(datasets=dataset)
         optimizer, scheduler = self.init_optimizer(dataset['train'], model)
         trainer = self.init_trainer(model, optimizer, scheduler)
         trainer.train_and_eval(dataset['train'], dataset['dev'], dataset['test'])
@@ -334,7 +338,7 @@ class BaseController:
 
     def training_cv(self):
         for k, dataset in self.init_dataset_kfold():
-            model = self.init_model()
+            model = self.init_model(datasets=dataset)
             optimizer, scheduler = self.init_optimizer(dataset['train'], model)
             trainer = self.init_trainer(model, optimizer, scheduler)
             logger_output('info', 'start training_cv {}/{}'.format(k, self.config['trainer']['k_fold']), self.rank)

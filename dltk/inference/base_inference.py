@@ -20,9 +20,11 @@ class BaseInference:
         dataset.data = [example]
         example_instance = dataset.convert_item(example)
         for name, value in example_instance.items():
-            if value.dim() == 1:
-                value = torch.unsqueeze(value, 0)
-            example_instance[name] = value.to(self.device)
+            if isinstance(value, torch.Tensor):
+                if value.dim() == 1:
+                    value = torch.unsqueeze(value, 0)
+                value = value.to(self.device)
+            example_instance[name] = value
         predictions = []
         start_index = 0
         with torch.no_grad():
@@ -31,14 +33,12 @@ class BaseInference:
             forward_output = {}
             forward_target = {}
             for data_name, data_value in example_instance.items():
-                if not isinstance(data_value, torch.Tensor):
-                    continue
-                data_value = data_value.detach().cpu().numpy()
+                if isinstance(data_value, torch.Tensor):
+                    data_value = data_value.detach().cpu().numpy()
                 forward_target[data_name] = data_value
             for data_name, data_value in output.items():
-                if not isinstance(data_value, torch.Tensor):
-                    continue
-                data_value = data_value.detach().cpu().numpy()
+                if isinstance(data_value, torch.Tensor):
+                    data_value = data_value.detach().cpu().numpy()
                 forward_output[data_name] = data_value
             batch_predictions = self.model.get_predictions(forward_output, forward_target, dataset, start_index)
             predictions.extend(batch_predictions)
@@ -59,20 +59,20 @@ class BaseInference:
         start_index = 0
         with torch.no_grad():
             for step, batch_data in enumerate(data_loader):
-                batch_data = {data_name: data_value.to(self.device) for data_name, data_value in batch_data.items()}
+                for data_name, data_value in batch_data.items():
+                    if isinstance(data_value, torch.Tensor):
+                        batch_data[data_name] = data_value.to(self.device)
                 batch_data['phase'] = 'inference'
                 output = self.model(**batch_data)
                 forward_output = {}
                 forward_target = {}
                 for data_name, data_value in batch_data.items():
-                    if not isinstance(data_value, torch.Tensor):
-                        continue
-                    data_value = data_value.detach().cpu().numpy()
+                    if isinstance(data_value, torch.Tensor):
+                        data_value = data_value.detach().cpu().numpy()
                     forward_target[data_name] = data_value
                 for data_name, data_value in output.items():
-                    if not isinstance(data_value, torch.Tensor):
-                        continue
-                    data_value = data_value.detach().cpu().numpy()
+                    if isinstance(data_value, torch.Tensor):
+                        data_value = data_value.detach().cpu().numpy()
                     forward_output[data_name] = data_value
                 batch_predictions = self.model.get_predictions(forward_output, forward_target, dataset, start_index)
                 predictions.extend(batch_predictions)

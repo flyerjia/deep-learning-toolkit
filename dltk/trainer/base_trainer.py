@@ -57,7 +57,9 @@ class BaseTrainer:
             for step, batch_data in enumerate(train_dataset['dataloader']):
                 begin_time = time.time()
                 self.optimizer.zero_grad()
-                batch_data = {data_name: data_value.to(self.device) for data_name, data_value in batch_data.items()}
+                for data_name, data_value in batch_data.items():
+                    if isinstance(data_value, torch.Tensor):
+                        batch_data[data_name] = data_value.to(self.device)
                 batch_data['phase'] = 'train'
                 if self.kwargs.get('use_fp16', False):
                     with autocast():
@@ -180,7 +182,9 @@ class BaseTrainer:
         with torch.no_grad():
             for step, batch_data in enumerate(dataset['dataloader']):
                 step_begin_time = time.time()
-                batch_data = {data_name: data_value.to(self.device) for data_name, data_value in batch_data.items()}
+                for data_name, data_value in batch_data.items():
+                    if isinstance(data_value, torch.Tensor):
+                        batch_data[data_name] = data_value.to(self.device)
                 batch_data['phase'] = phase
                 if self.ddp_flag:
                     output = self.model.module(**batch_data)
@@ -190,14 +194,12 @@ class BaseTrainer:
                 forward_target = {}
                 # 全部转换成numpy，减少gpu显存消耗
                 for data_name, data_value in batch_data.items():
-                    if not isinstance(data_value, torch.Tensor):
-                        continue
-                    data_value = data_value.detach().cpu().numpy()
+                    if isinstance(data_value, torch.Tensor):
+                        data_value = data_value.detach().cpu().numpy()
                     forward_target[data_name] = data_value
                 for data_name, data_value in output.items():
-                    if not isinstance(data_value, torch.Tensor):
-                        continue
-                    data_value = data_value.detach().cpu().numpy()
+                    if isinstance(data_value, torch.Tensor):
+                        data_value = data_value.detach().cpu().numpy()
                     forward_output[data_name] = data_value
                 if self.ddp_flag:
                     batch_predictions = self.model.module.get_predictions(forward_output, forward_target, dataset['dataset'], start_index)
@@ -242,7 +244,9 @@ class BaseTrainer:
         with torch.no_grad():
             for step, batch_data in enumerate(dataset['dataloader']):
                 step_begin_time = time.time()
-                batch_data = {data_name: data_value.to(self.device) for data_name, data_value in batch_data.items()}
+                for data_name, data_value in batch_data.items():
+                    if isinstance(data_value, torch.Tensor):
+                        batch_data[data_name] = data_value.to(self.device)
                 batch_data['phase'] = phase
                 if self.ddp_flag:
                     output = self.model.module(**batch_data)
@@ -252,14 +256,12 @@ class BaseTrainer:
                 forward_target = {}
                 # 全部转换成numpy，减少gpu显存消耗
                 for data_name, data_value in batch_data.items():
-                    if not isinstance(data_value, torch.Tensor):
-                        continue
-                    data_value = data_value.detach().cpu().numpy()
+                    if isinstance(data_value, torch.Tensor):
+                        data_value = data_value.detach().cpu().numpy()
                     forward_target[data_name] = data_value
                 for data_name, data_value in output.items():
-                    if not isinstance(data_value, torch.Tensor):
-                        continue
-                    data_value = data_value.detach().cpu().numpy()
+                    if isinstance(data_value, torch.Tensor):
+                        data_value = data_value.detach().cpu().numpy()
                     forward_output[data_name] = data_value
                 if self.ddp_flag:
                     batch_predictions = self.model.module.get_predictions(forward_output, forward_target, dataset['dataset'], start_index)
