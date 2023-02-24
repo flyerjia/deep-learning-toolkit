@@ -34,10 +34,10 @@ class BaseReader(Dataset):
 
     def save_tokenizer(self, save_path):
         tokenizer = getattr(self, 'tokenizer', None)
-        if not tokenizer:
+        if tokenizer:
             return tokenizer.save_pretrained(save_path)
         processor = getattr(self, 'tokenizer', None)
-        if not processor:
+        if processor:
             return processor.save_pretrained(save_path)
         return []
 
