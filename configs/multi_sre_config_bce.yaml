@@ -36,7 +36,7 @@ optimizer:
   lr: 3e-3
   encoder_lr: 5e-5
   weight_decay: 0.01
-  lr_scheduler: linear_schedule_with_warmup
+  lr_scheduler: linear
   warmup: 0.2
 
 trainer:

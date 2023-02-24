@@ -32,5 +32,14 @@ class BaseReader(Dataset):
     def collate_fn(self, batch_data):
         raise NotImplementedError
 
+    def save_tokenizer(self, save_path):
+        tokenizer = getattr(self, 'tokenizer', None)
+        if not tokenizer:
+            return tokenizer.save_pretrained(save_path)
+        processor = getattr(self, 'tokenizer', None)
+        if not processor:
+            return processor.save_pretrained(save_path)
+        return []
+
 
 reader = BaseReader

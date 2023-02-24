@@ -20,7 +20,7 @@ from sklearn.model_selection import KFold
 from torch.nn.parallel import DistributedDataParallel as DDP
 from torch.utils.data import DataLoader, RandomSampler, SequentialSampler
 from torch.utils.data.distributed import DistributedSampler
-from transformers import get_linear_schedule_with_warmup
+from transformers import get_scheduler
 
 from ..utils.common_utils import (OPTIMIZERS, get_device, logger_output,
                                   read_json, read_jsonline, write_yaml)
@@ -47,7 +47,7 @@ class BaseController:
         elif data_type == 'json':
             data = read_json(data_path)
         elif data_type == 'images':
-            data = load_dataset(data_path, split=phase)
+            data = load_dataset(data_path, split='train')
         else:
             logger_output('error', 'wrong {} data type or {} data type not configured'.format(phase, phase), self.rank)
             raise ValueError('wrong {} data type or {} data type not configured'.format(phase, phase))
@@ -300,16 +300,11 @@ class BaseController:
                                                          lr=float(lr),
                                                          weight_decay=weight_decay)
 
-        scheduler_type = optimizer_config.get('lr_scheduler', None)
-        if scheduler_type:
-            # 不同的scheduler的参数不同，需要单独写
-            if scheduler_type == 'linear_schedule_with_warmup':
-                tol_steps = len(train_dataset['dataloader']) * self.config['trainer']['epoch']
-                scheduler = get_linear_schedule_with_warmup(optimizer=optimizer,
-                                                            num_warmup_steps=int(tol_steps * warmup),
-                                                            num_training_steps=tol_steps)
-        else:
-            scheduler = None
+        scheduler_type = optimizer_config.get('lr_scheduler', 'linear')
+        tol_steps = len(train_dataset['dataloader']) * self.config['trainer']['epoch']
+        warmup_steps = int(tol_steps * warmup)
+        scheduler = get_scheduler(name=scheduler_type, optimizer=optimizer, num_warmup_steps=warmup_steps, num_training_steps=tol_steps)
+
         if self.ddp_flag:
             dist.barrier()
         return optimizer, scheduler

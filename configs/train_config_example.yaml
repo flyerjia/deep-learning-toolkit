@@ -37,7 +37,7 @@ optimizer:
   lr: 1e-4 # 任务层学习率
   encoder_lr: 1e-5 # 嵌入层学习率
   weight_decay: 0.01
-  lr_scheduler: linear_schedule_with_warmup # 暂时只支持linear_warmup
+  lr_scheduler: linear # linear/cosine/cosine_with_restarts/polynomial/constant/constant_with_warmup
   warmup: 0.2
 
 trainer:

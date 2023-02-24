@@ -27,4 +27,5 @@ inference_model: "XX_model.pth" # 直接加载模型 model和inference_model 二
 
 inference:
   batch_size: 12
+  use_fp16: False # 是否使用半精度
   inference_output: "XXX.result"

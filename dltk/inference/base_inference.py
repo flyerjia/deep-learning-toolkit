@@ -5,6 +5,7 @@
 @Author  :   jiangjiajia
 """
 import torch
+import numpy as np
 from torch.utils.data import DataLoader, SequentialSampler
 
 from ..utils.common_utils import write_json, logger_output
@@ -15,6 +16,8 @@ class BaseInference:
         self.device = device
         self.model = model
         self.kwargs = kwargs
+        if self.kwargs.get('use_fp16', False):
+            self.model.half()
 
     def service_inference(self, dataset, example):
         dataset.data = [example]
@@ -42,7 +45,8 @@ class BaseInference:
                 forward_output[data_name] = data_value
             batch_predictions = self.model.get_predictions(forward_output, forward_target, dataset, start_index)
             predictions.extend(batch_predictions)
-            start_index += max([forward_target[data_name].shape[0] for data_name in forward_target.keys()])
+            start_index += max([data_value.shape[0] for data_value in forward_target.values()
+                                if isinstance(data_value, np.ndarray) and data_value.ndim >= 2])
         prediction = predictions[0]
         example.update(prediction)
         return example
@@ -76,7 +80,8 @@ class BaseInference:
                     forward_output[data_name] = data_value
                 batch_predictions = self.model.get_predictions(forward_output, forward_target, dataset, start_index)
                 predictions.extend(batch_predictions)
-                start_index += max([forward_target[data_name].shape[0] for data_name in forward_target.keys()])
+                start_index += max([data_value.shape[0] for data_value in forward_target.values()
+                                    if isinstance(data_value, np.ndarray) and data_value.ndim >= 2])
                 logger_output('info', 'batch data {}/{} inference done'.format(step + 1, len(data_loader)))
         logger_output('info', 'inference done')
         write_json(self.kwargs['inference_output'], predictions)

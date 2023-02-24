@@ -5,6 +5,7 @@
 @Author  :   jiangjiajia
 """
 import logging
+from typing import List
 
 from ..utils.common_utils import logger_output
 
@@ -16,4 +17,15 @@ class BaseTokenizer:
         """
         for name, value in kwargs.items():
             setattr(self, name, value)
-        pass
+
+    def save_pretrained(self, save_path) -> List[str]:
+        """
+        分词器的保存函数
+
+        Args:
+            save_path (str): 保存路径
+
+        Returns:
+            List[str]: 保存的文件名
+        """
+        raise NotImplementedError

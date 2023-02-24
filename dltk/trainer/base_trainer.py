@@ -9,6 +9,7 @@ import time
 
 import torch
 import torch.distributed as dist
+import numpy as np
 from torch.cuda.amp import GradScaler, autocast
 
 from ..modules.ema import EMA
@@ -206,7 +207,8 @@ class BaseTrainer:
                 else:
                     batch_predictions = self.model.get_predictions(forward_output, forward_target, dataset['dataset'], start_index)
                 predictions.extend(batch_predictions)
-                start_index += max([forward_target[data_name].shape[0] for data_name in forward_target.keys()])
+                start_index += max([data_value.shape[0] for data_value in forward_target.values()
+                                    if isinstance(data_value, np.ndarray) and data_value.ndim >= 2])
                 step_end_time = time.time()
                 step_used_time = step_end_time - step_begin_time
                 logger_output('info', 'rank:{} epoch:{} eval data step:{}/{} time:{:.6f}'.format(self.rank, epoch,
@@ -268,7 +270,8 @@ class BaseTrainer:
                 else:
                     batch_predictions = self.model.get_predictions(forward_output, forward_target, dataset['dataset'], start_index)
                 predictions.extend(batch_predictions)
-                start_index += max([forward_target[data_name].shape[0] for data_name in forward_target.keys()])
+                start_index += max([data_value.shape[0] for data_value in forward_target.values()
+                                    if isinstance(data_value, np.ndarray) and data_value.ndim >= 2])
                 step_end_time = time.time()
                 step_used_time = step_end_time - step_begin_time
                 logger_output('info', 'rank:{} epoch:{} test data step:{}/{} time:{:.6f}'.format(self.rank, epoch,
@@ -366,6 +369,14 @@ class BaseTrainer:
                 logger_output('info', 'saving model: {}'.format(file_name), self.rank)
             else:
                 logger_output('info', 'cv[{}] saving model: {}'.format(info, file_name), self.rank)
+            # 保存tokenizer
+            dataset_reader =  self.model.datasets.get('train', {'dataset': None})['dataset']
+            if dataset_reader:
+                save_tokenizer_files = dataset_reader.save_tokenizer(self.kwargs['save_checkpoints'])
+                if not info:
+                    logger_output('info', 'saving tokenizer: {}'.format(save_tokenizer_files), self.rank)
+                else:
+                    logger_output('info', 'cv[{}] saving tokenizer: {}'.format(info, save_tokenizer_files), self.rank)
         if need_save and self.kwargs.get('max_model_num', None):
             self.saved_model_info.insert(0, model_info)
             self.saved_model_info.sort(key=lambda x: _model_sort_info(x), reverse=True)
