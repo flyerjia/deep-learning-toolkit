@@ -6,6 +6,7 @@
 """
 import torch
 from torch.utils.data import Dataset
+from transformers.utils import PushToHubMixin
 
 
 class BaseReader(Dataset):
@@ -34,10 +35,10 @@ class BaseReader(Dataset):
 
     def save_tokenizer(self, save_path):
         tokenizer = getattr(self, 'tokenizer', None)
-        if tokenizer:
+        if tokenizer and isinstance(tokenizer, PushToHubMixin):
             return tokenizer.save_pretrained(save_path)
         processor = getattr(self, 'tokenizer', None)
-        if processor:
+        if processor and isinstance(processor, PushToHubMixin):
             return processor.save_pretrained(save_path)
         return []
 
