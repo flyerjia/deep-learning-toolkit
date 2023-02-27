@@ -370,7 +370,10 @@ class BaseTrainer:
             else:
                 logger_output('info', 'cv[{}] saving model: {}'.format(info, file_name), self.rank)
             # 保存tokenizer
-            dataset_reader =  self.model.datasets.get('train', {'dataset': None})['dataset']
+            if self.ddp_flag:
+                dataset_reader =  self.model.module.datasets.get('train', {'dataset': None})['dataset']
+            else:
+                dataset_reader =  self.model.datasets.get('train', {'dataset': None})['dataset']
             if dataset_reader:
                 save_tokenizer_files = dataset_reader.save_tokenizer(self.kwargs['save_checkpoints'])
                 if not info:
