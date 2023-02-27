@@ -167,13 +167,13 @@ class MultiSREModel(BaseModel):
                         'end_idx': obj[2] + 1
                     }
                 }
-                if self.output_probs:
-                    temp_prob = 0.
-                    temp_prob += probs[(sub[1], sub[2])]
-                    temp_prob += probs[(obj[1], obj[2])]
-                    temp_prob += probs[(sub[1], obj[1])]
-                    temp_prob += probs[(sub[2], obj[2])]
-                    temp_result['prob'] = temp_prob / 4
+                # if self.output_probs:
+                #     temp_prob = 0.
+                #     temp_prob += probs[(sub[1], sub[2])]
+                #     temp_prob += probs[(obj[1], obj[2])]
+                #     temp_prob += probs[(sub[1], obj[1])]
+                #     temp_prob += probs[(sub[2], obj[2])]
+                #     temp_result['prob'] = temp_prob / 4
                 relation_of_mention.append(temp_result)
 
             # 再看标签2 条件关系的
@@ -206,18 +206,18 @@ class MultiSREModel(BaseModel):
                                 }
                             }
                         }
-                        if self.output_probs:
-                            temp_prob = 0.
-                            temp_prob += probs[(relation_i[0][1], relation_i[0][2])]
-                            temp_prob += probs[(relation_i[2][1], relation_i[2][2])]
-                            temp_prob += probs[(relation_j[2][1], relation_j[2][2])]
-                            temp_prob += probs[(relation_i[0][1], relation_i[2][1])]
-                            temp_prob += probs[(relation_i[0][2], relation_i[2][2])]
-                            temp_prob += probs[(relation_i[0][1], relation_j[2][1])]
-                            temp_prob += probs[(relation_i[0][2], relation_j[2][2])]
-                            temp_prob += probs[(relation_i[2][1], relation_j[2][1])]
-                            temp_prob += probs[(relation_i[2][2], relation_j[2][2])]
-                            temp_result['prob'] = temp_prob / 9
+                        # if self.output_probs:
+                        #     temp_prob = 0.
+                        #     temp_prob += probs[(relation_i[0][1], relation_i[0][2])]
+                        #     temp_prob += probs[(relation_i[2][1], relation_i[2][2])]
+                        #     temp_prob += probs[(relation_j[2][1], relation_j[2][2])]
+                        #     temp_prob += probs[(relation_i[0][1], relation_i[2][1])]
+                        #     temp_prob += probs[(relation_i[0][2], relation_i[2][2])]
+                        #     temp_prob += probs[(relation_i[0][1], relation_j[2][1])]
+                        #     temp_prob += probs[(relation_i[0][2], relation_j[2][2])]
+                        #     temp_prob += probs[(relation_i[2][1], relation_j[2][1])]
+                        #     temp_prob += probs[(relation_i[2][2], relation_j[2][2])]
+                        #     temp_result['prob'] = temp_prob / 9
                         relation_of_mention.append(temp_result)
             # 最后处理标签1 因果关系的
             for (sub, label, obj) in set(relations_dict.get('1', [])) - used_relations:
@@ -234,13 +234,13 @@ class MultiSREModel(BaseModel):
                         'end_idx': obj[2] + 1
                     }
                 }
-                if self.output_probs:
-                    temp_prob = 0.
-                    temp_prob += probs[(sub[1], sub[2])]
-                    temp_prob += probs[(obj[1], obj[2])]
-                    temp_prob += probs[(sub[1], obj[1])]
-                    temp_prob += probs[(sub[2], obj[2])]
-                    temp_result['prob'] = temp_prob / 4
+                # if self.output_probs:
+                #     temp_prob = 0.
+                #     temp_prob += probs[(sub[1], sub[2])]
+                #     temp_prob += probs[(obj[1], obj[2])]
+                #     temp_prob += probs[(sub[1], obj[1])]
+                #     temp_prob += probs[(sub[2], obj[2])]
+                #     temp_result['prob'] = temp_prob / 4
                 relation_of_mention.append(temp_result)
             predictions.append({
                 'text': text,
