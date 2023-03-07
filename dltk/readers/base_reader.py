@@ -37,7 +37,7 @@ class BaseReader(Dataset):
         tokenizer = getattr(self, 'tokenizer', None)
         if tokenizer and isinstance(tokenizer, PushToHubMixin):
             return tokenizer.save_pretrained(save_path)
-        processor = getattr(self, 'tokenizer', None)
+        processor = getattr(self, 'processor', None)
         if processor and isinstance(processor, PushToHubMixin):
             return processor.save_pretrained(save_path)
         return []

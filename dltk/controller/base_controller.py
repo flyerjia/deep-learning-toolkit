@@ -273,29 +273,33 @@ class BaseController:
         logger_output('info', 'init optimizer', self.rank)
         optimizer_config = self.config['optimizer']
 
-        # 分层学习率
-        encoder_modules_parameters = []
-        other_modules_parameters = []
-        for name, parameter in list(model.named_parameters()):
-            if 'encoder' in name:
-                encoder_modules_parameters.append((name, parameter))
-            else:
-                other_modules_parameters.append((name, parameter))
-        no_decay = ['bias', 'LayerNorm.bias', 'LayerNorm.weight']
         lr = optimizer_config.get('lr', 1e-4)
-        encoder_lr = optimizer_config.get('encoder_lr', 1e-5)
         weight_decay = optimizer_config.get('weight_decay', 0.01)
         warmup = optimizer_config.get('warmup', 0.1)
-        optimizer_grouped_parameters = [
-            {'params': [p for n, p in encoder_modules_parameters if not any(nd in n for nd in no_decay)],
-             'weight_decay': optimizer_config['weight_decay'], 'lr': float(encoder_lr)},
-            {'params': [p for n, p in encoder_modules_parameters if any(nd in n for nd in no_decay)],
-             'weight_decay': 0.0, 'lr': float(encoder_lr)},
-            {'params': [p for n, p in other_modules_parameters if not any(nd in n for nd in no_decay)],
-             'weight_decay': optimizer_config['weight_decay'], 'lr': float(lr)},
-            {'params': [p for n, p in other_modules_parameters if any(nd in n for nd in no_decay)],
-             'weight_decay': 0.0,     'lr': float(lr)}
-        ]
+        encoder_lr = optimizer_config.get('encoder_lr', None)
+        if encoder_lr is not None:
+            # 分层学习率
+            encoder_modules_parameters = []
+            other_modules_parameters = []
+            for name, parameter in list(model.named_parameters()):
+                if name.startswith('encoder'):
+                    encoder_modules_parameters.append((name, parameter))
+                else:
+                    other_modules_parameters.append((name, parameter))
+            no_decay = ['bias', 'LayerNorm.bias', 'LayerNorm.weight']
+            optimizer_grouped_parameters = [
+                {'params': [p for n, p in encoder_modules_parameters if not any(nd in n for nd in no_decay)],
+                 'weight_decay': optimizer_config['weight_decay'], 'lr': float(encoder_lr)},
+                {'params': [p for n, p in encoder_modules_parameters if any(nd in n for nd in no_decay)],
+                 'weight_decay': 0.0, 'lr': float(encoder_lr)},
+                {'params': [p for n, p in other_modules_parameters if not any(nd in n for nd in no_decay)],
+                 'weight_decay': optimizer_config['weight_decay'], 'lr': float(lr)},
+                {'params': [p for n, p in other_modules_parameters if any(nd in n for nd in no_decay)],
+                 'weight_decay': 0.0, 'lr': float(lr)}
+            ]
+        else:
+            optimizer_grouped_parameters = model.parameters()
+
         optimizer = OPTIMIZERS[optimizer_config['type']](optimizer_grouped_parameters,
                                                          lr=float(lr),
                                                          weight_decay=weight_decay)
