@@ -28,10 +28,11 @@ class BinaryFocalLoss(nn.Module):
         assert self.reduction in ['none', 'mean', 'sum']
 
     def forward(self, output, target):
+        # y_pred: [..., c]
+        # y_target: [..., c]
         prob = torch.sigmoid(output)
         prob = torch.clamp(prob, self.smooth, 1.0 - self.smooth)
 
-        target = target.unsqueeze(dim=1)
         pos_mask = (target == 1).float()
         neg_mask = (target == 0).float()
 
