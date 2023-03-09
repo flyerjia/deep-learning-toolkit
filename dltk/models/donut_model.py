@@ -54,7 +54,7 @@ class DonutModel(BaseModel):
             input_ids = torch.from_numpy(input_ids).unsqueeze(0).to(device)
             outputs = self.donut_model.generate(input_tensor,
                                                 decoder_input_ids=input_ids,
-                                                max_length=self.donut_model.decoder.config.max_position_embeddings,
+                                                max_length=self.max_length,
                                                 early_stopping=True,
                                                 pad_token_id=dataset.processor.tokenizer.pad_token_id,
                                                 eos_token_id=dataset.processor.tokenizer.eos_token_id,
