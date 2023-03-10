@@ -31,7 +31,23 @@ class BaseReader(Dataset):
         return len(self.data)
 
     def collate_fn(self, batch_data):
-        raise NotImplementedError
+        outputs = {}
+        for each_data in batch_data:
+            for data_name, data in each_data.items():
+                outputs.setdefault(data_name, []).append(data)
+        for data_name, data in outputs.items():
+            elem = data[0]
+            if isinstance(elem, torch.Tensor):
+                dim = elem.dim()
+                numel = elem.numel()
+                if dim == 1:
+                    if numel == 1:
+                        data = torch.cat(data, dim=0)
+                    else:
+                        data = torch.stack(data, dim=0)
+                else:
+                    data = torch.cat(data, dim=0)
+        return outputs
 
     def save_tokenizer(self, save_path):
         tokenizer = getattr(self, 'tokenizer', None)

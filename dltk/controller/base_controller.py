@@ -231,8 +231,8 @@ class BaseController:
             except Exception as ex:
                 logger_output('error', '{} model not existed or import error'.format(model_type), self.rank)
                 raise ex
-            model_config['datasets'] = datasets
-            model = model(**model_config)
+            model_configs = model_config | {'datasets': datasets}
+            model = model(**model_configs)
             # 加载权重
             weight_path = model_config.get('weight_path', None)
             if weight_path:
