@@ -46,7 +46,8 @@ class BaseReader(Dataset):
                     else:
                         data = torch.stack(data, dim=0)
                 else:
-                    data = torch.cat(data, dim=0)
+                    data = torch.stack(data, dim=0)
+                outputs[data_name] =  data
         return outputs
 
     def save_tokenizer(self, save_path):

@@ -42,6 +42,7 @@ class DonutReader(BaseReader):
                     gt_jsons = [ground_truth["gt_parse"]]
                 self.gt_token_sequences.append(
                     [
+                        self.task_start_token +
                         self.json2token(
                             gt_json,
                             update_special_tokens_for_json_key=self.phase == "train",
@@ -105,19 +106,19 @@ class DonutReader(BaseReader):
         pixel_values = self.processor(sample["image"].convert("RGB"), random_padding=self.phase == "train", return_tensors="pt").pixel_values
         pixel_values = pixel_values.squeeze()
         target_sequence = random.choice(self.gt_token_sequences[idx])  # can be more than one, e.g., DocVQA Task 1
+        # targets
+        input_ids = self.processor.tokenizer(target_sequence,
+                                             add_special_tokens=False,
+                                             max_length=self.max_length,
+                                             padding="max_length",
+                                             truncation=True,
+                                             return_tensors="pt",
+                                             )["input_ids"].squeeze(0)
         if self.phase == 'train':
-            # targets
-            input_ids = self.processor.tokenizer(target_sequence,
-                                                 add_special_tokens=False,
-                                                 max_length=self.max_length,
-                                                 padding="max_length",
-                                                 truncation=True,
-                                                 return_tensors="pt",
-                                                 )["input_ids"].squeeze(0)
             labels = input_ids.clone()
             # model doesn't need to predict pad token
             labels[labels == self.processor.tokenizer.pad_token_id] = self.ignore_id
-            # labels[: torch.nonzero(labels == self.prompt_end_token_id).sum() + 1] = self.ignore_id  # model doesn't need to predict prompt (for VQA)
+            labels[: torch.nonzero(labels == self.prompt_end_token_id).sum() + 1] = self.ignore_id  # model doesn't need to predict prompt (for VQA)
             return {
                 'input_tensor': pixel_values,
                 'input_ids': input_ids,
@@ -125,30 +126,13 @@ class DonutReader(BaseReader):
                 'answers': target_sequence
             }
         else:
-            input_ids = self.processor.tokenizer(self.task_start_token,
-                                                 add_special_tokens=False,
-                                                 return_tensors="pt",
-                                                 )["input_ids"].squeeze(0)
-            labels = input_ids.clone()
-            # labels[: torch.nonzero(labels == self.prompt_end_token_id).sum() + 1] = self.ignore_id  # model doesn't need to predict prompt (for VQA)
+            prompt_end_index = torch.nonzero(input_ids == self.prompt_end_token_id).sum()  # return prompt end index instead of target output labels
             return {
                 'input_tensor': pixel_values,
                 'input_ids': input_ids,
-                'labels': labels,
+                'prompt_end_index': prompt_end_index,
                 'answers': target_sequence
             }
-
-    def collate_fn(self, batch_data):
-        input_tensor = torch.stack([each_data['input_tensor'] for each_data in batch_data], dim=0)
-        input_ids = torch.stack([each_data['input_ids'] for each_data in batch_data], dim=0)
-        labels = torch.stack([each_data['labels'] for each_data in batch_data], dim=0)
-        answers = [each_data['answers'] for each_data in batch_data]
-        return {
-            'input_tensor': input_tensor,
-            'input_ids': input_ids,
-            'labels': labels,
-            'answers': answers
-        }
 
 
 reader = DonutReader

@@ -36,7 +36,7 @@ class DonutModel(BaseModel):
 
     def forward(self, input_tensor, input_ids, labels=None, answers=None, phase=None, **kwarg):
         if phase == 'train' and labels is not None:
-            outputs = self.donut_model(pixel_values=input_tensor, labels=labels)
+            outputs = self.donut_model(pixel_values=input_tensor, decoder_input_ids=input_ids[:, :-1].contiguous(), labels=labels[:, 1:].contiguous())
             return {
                 'loss': outputs.loss,
                 'logits': outputs.logits
@@ -49,8 +49,9 @@ class DonutModel(BaseModel):
         index = 0
         device = next(self.donut_model.parameters()).device
 
-        for input_tensor, input_ids, answer in zip(forward_target['input_tensor'], forward_target['input_ids'], forward_target['answers']):
+        for input_tensor, input_ids, prompt_end_index, answer in zip(forward_target['input_tensor'], forward_target['input_ids'], forward_target['prompt_end_index'], forward_target['answers']):
             input_tensor = torch.from_numpy(input_tensor).unsqueeze(0).to(device)
+            input_ids = input_ids[: prompt_end_index + 1]
             input_ids = torch.from_numpy(input_ids).unsqueeze(0).to(device)
             outputs = self.donut_model.generate(input_tensor,
                                                 decoder_input_ids=input_ids,
@@ -71,9 +72,11 @@ class DonutModel(BaseModel):
             data = copy.deepcopy(dataset.data[index + batch_start_index])
             each_output = each_output.replace(dataset.processor.tokenizer.eos_token, '').replace(dataset.processor.tokenizer.pad_token, '')
             each_output = re.sub(r"<.*?>", '', each_output, count=1).strip()  # remove first task start token
+
             answer = answer.replace(dataset.processor.tokenizer.eos_token, '').replace(dataset.processor.tokenizer.pad_token, '')
+            answer = re.sub(r"<.*?>", '', answer, count=1).strip()  # remove first task start token
             predictions.append({
-                'name': data['name'],
+                'idx': index + batch_start_index,
                 'target': dataset.processor.token2json(answer),
                 'prediction': dataset.processor.token2json(each_output)
             })

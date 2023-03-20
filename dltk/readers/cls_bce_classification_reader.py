@@ -55,9 +55,6 @@ class CLSClassificationReader(BaseReader):
     def __getitem__(self, index):
         return self.convert_data[index]
 
-    def __len__(self):
-        return len(self.convert_data)
-
     def collate_fn(self, batch_data):
         input_ids = torch.cat([each_data['input_ids'] for each_data in batch_data], dim=0)
         token_type_ids = torch.cat([each_data['token_type_ids'] for each_data in batch_data], dim=0)
