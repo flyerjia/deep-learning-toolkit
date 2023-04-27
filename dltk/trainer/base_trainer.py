@@ -6,6 +6,7 @@
 """
 import os
 import time
+import shutil
 
 import torch
 import torch.distributed as dist
@@ -44,10 +45,10 @@ class BaseTrainer:
 
         if self.kwargs.get('use_fp16', False):
             scaler = GradScaler()
-        if self.kwargs.get('use_fgm', False):
-            adv_model = FGM(self.model)
-        if self.kwargs.get('use_ema', False):
-            self.ema_model = EMA(self.model, 0.9)
+        if self.kwargs.get('use_fgm', False) is not False:
+            adv_model = FGM(self.model, float(self.kwargs['use_fgm']))
+        if self.kwargs.get('use_ema', False) is not False:
+            self.ema_model = EMA(self.model, float(self.kwargs['use_ema']))
             self.ema_model.register()
         best_model_index = -1
         best_model_epoch = -1
@@ -78,7 +79,7 @@ class BaseTrainer:
                     logger_output('info', 'rank:{} cv[{}] epoch:{} step:{}/{} train loss:{:.6f} time:{:.6f}'.format(self.rank, info, epoch, step + 1, len(train_dataset['dataloader']),
                                                                                                                     output['loss'], used_time), self.rank, False)
 
-                if self.kwargs.get('use_fgm', False):
+                if self.kwargs.get('use_fgm', False) is not False:
                     adv_model.attack()
                     if self.kwargs.get('use_fp16', False):
                         with autocast():
@@ -97,13 +98,18 @@ class BaseTrainer:
                         logger_output('info', 'rank:{} cv[{}] epoch:{} step:{}/{} adv train loss:{:.6f} time:{:.6f}'.format(self.rank,
                                       info, epoch, step + 1, len(train_dataset['dataloader']), output['loss'], used_time), self.rank, False)
 
+                if self.kwargs.get('use_clip_norm', False):
+                    if self.kwargs.get('use_fp16', False):
+                        scaler.unscale_(self.optimizer)
+                    torch.nn.utils.clip_grad.clip_grad_norm_(self.model.parameters(), max_norm=float(self.kwargs['use_clip_norm']))
+
                 if self.kwargs.get('use_fp16', False):
                     scaler.step(self.optimizer)
                     scaler.update()
                 else:
                     self.optimizer.step()
 
-                if self.kwargs.get('ema', False):
+                if self.kwargs.get('use_ema', False) is not False:
                     self.ema_model.update()
 
                 if self.scheduler:
@@ -113,7 +119,7 @@ class BaseTrainer:
                 dist.barrier()
 
             # 对验证数据数据测评
-            if self.rank == 0 and 'eval_epoch' in self.kwargs.keys() and epoch % self.kwargs.get('eval_epoch', 1) == 0 and dev_dataset:
+            if self.rank == 0 and 'eval_epoch' in self.kwargs.keys() and (epoch % self.kwargs.get('eval_epoch', 1) == 0 or epoch == self.kwargs.get('epoch', 10)) and dev_dataset:
                 dev_metrics_output = self.eval(epoch, 'dev', dev_dataset, info)
                 if not info:
                     logger_output('info', 'epoch:{} eval time cost:{}'.format(
@@ -125,7 +131,7 @@ class BaseTrainer:
                     self.save_evaluation_file(epoch, 'dev',  dev_metrics_output, info)
 
             # 测试集
-            if self.rank == 0 and 'test_epoch' in self.kwargs.keys() and epoch % self.kwargs.get('test_epoch', 1) == 0 and test_dataset:
+            if self.rank == 0 and 'test_epoch' in self.kwargs.keys() and (epoch % self.kwargs.get('test_epoch', 1) == 0 or epoch == self.kwargs.get('epoch', 10)) and test_dataset:
                 self.test(epoch, 'test', test_dataset, info)
 
             # 保存最优指标用来早停
@@ -137,6 +143,29 @@ class BaseTrainer:
             if self.rank == 0 and epoch in self.all_eval_info.keys() and self.kwargs['model_sort_key'] in self.all_eval_info[epoch].keys() and \
                     self.kwargs.get('save_predictions', False):
                 self.save_model(epoch, info)
+
+            # 在没有验证集指标情况下进行保存模型
+            if self.rank == 0 and dev_dataset is None and 'save_epoch' in self.kwargs and epoch % self.kwargs.get('save_epoch', 1) == 0:
+                if not info:
+                    file_name = 'model_{}'.format(str(epoch))
+                else:
+                    file_name = info + '_model_{}'.format(str(epoch))
+                if not os.path.exists(self.kwargs['save_checkpoints']):
+                    os.mkdir(self.kwargs['save_checkpoints'])
+                save_path = os.path.join(self.kwargs['save_checkpoints'], file_name)
+                if self.kwargs.get('use_ema', False) is not False:
+                    self.ema_model.apply_shadow()
+                only_save_model_weight = self.kwargs.get('only_save_model_weight', False)
+                if self.ddp_flag:
+                    self.model.module.save(save_path, only_save_model_weight)
+                else:
+                    self.model.save(save_path, only_save_model_weight)
+                if self.kwargs.get('use_ema', False) is not False:
+                    self.ema_model.restore()
+                if not info:
+                    logger_output('info', 'saving model: {}'.format(file_name), self.rank)
+                else:
+                    logger_output('info', 'cv[{}] saving model: {}'.format(info, file_name), self.rank)
 
             if self.ddp_flag:
                 dist.barrier()
@@ -154,16 +183,20 @@ class BaseTrainer:
         # 在不设置早停的情况下，保存最后一次的模型
         if self.rank == 0 and not self.kwargs.get('early_stopping', False):
             if not info:
-                file_name = 'model_lastest.pth'
+                file_name = 'model_lastest'
             else:
-                file_name = info + '_model_lastest.pth'
+                file_name = info + '_model_lastest'
             if not os.path.exists(self.kwargs['save_checkpoints']):
                 os.mkdir(self.kwargs['save_checkpoints'])
             save_path = os.path.join(self.kwargs['save_checkpoints'], file_name)
+            if self.kwargs.get('use_ema', False) is not False:
+                self.ema_model.apply_shadow()
             if self.ddp_flag:
-                torch.save(self.model.module, save_path)
+                self.model.module.save(save_path)
             else:
-                torch.save(self.model, save_path)
+                self.model.save(save_path)
+            if self.kwargs.get('use_ema', False) is not False:
+                self.ema_model.restore()
             if not info:
                 logger_output('info', 'saving model: {}'.format(file_name), self.rank)
             else:
@@ -177,7 +210,7 @@ class BaseTrainer:
         start_index = 0
 
         begin_time = time.time()
-        if self.kwargs.get('use_ema', False):
+        if self.kwargs.get('use_ema', False) is not False:
             self.ema_model.apply_shadow()
         self.model.eval()
         with torch.no_grad():
@@ -217,7 +250,7 @@ class BaseTrainer:
             metrics_output = self.model.module.get_metrics(phase, predictions, dataset['dataset'])
         else:
             metrics_output = self.model.get_metrics(phase, predictions, dataset['dataset'])
-        if self.kwargs.get('use_ema', False):
+        if self.kwargs.get('use_ema', False) is not False:
             self.ema_model.restore()
 
         end_time = time.time()
@@ -240,7 +273,7 @@ class BaseTrainer:
         predictions = []
         start_index = 0
 
-        if self.kwargs.get('use_ema', False):
+        if self.kwargs.get('use_ema', False) is not False:
             self.ema_model.apply_shadow()
         self.model.eval()
         with torch.no_grad():
@@ -276,7 +309,7 @@ class BaseTrainer:
                 step_used_time = step_end_time - step_begin_time
                 logger_output('info', 'rank:{} epoch:{} test data step:{}/{} time:{:.6f}'.format(self.rank, epoch,
                               step + 1, len(dataset['dataloader']), step_used_time), self.rank)
-        if self.kwargs.get('use_ema', False):
+        if self.kwargs.get('use_ema', False) is not False:
             self.ema_model.restore()
 
         if self.kwargs.get('save_predictions', None):
@@ -344,26 +377,20 @@ class BaseTrainer:
                 need_save = False
         if need_save and self.kwargs.get('save_checkpoints', None):
             if not info:
-                file_name = 'model_{}.pth'.format(str(epoch))
+                file_name = 'model_{}'.format(str(epoch))
             else:
-                file_name = info + '_model_{}.pth'.format(str(epoch))
+                file_name = info + '_model_{}'.format(str(epoch))
             if not os.path.exists(self.kwargs['save_checkpoints']):
                 os.mkdir(self.kwargs['save_checkpoints'])
             save_path = os.path.join(self.kwargs['save_checkpoints'], file_name)
-            if self.kwargs.get('use_ema', False):
+            if self.kwargs.get('use_ema', False) is not False:
                 self.ema_model.apply_shadow()
             only_save_model_weight = self.kwargs.get('only_save_model_weight', False)
             if self.ddp_flag:
-                if only_save_model_weight:
-                    torch.save(self.model.module.state_dict(), save_path)
-                else:
-                    torch.save(self.model.module, save_path)
+                self.model.module.save(save_path, only_save_model_weight)
             else:
-                if only_save_model_weight:
-                    torch.save(self.model.state_dict(), save_path)
-                else:
-                    torch.save(self.model, save_path)
-            if self.kwargs.get('use_ema', False):
+                self.model.save(save_path, only_save_model_weight)
+            if self.kwargs.get('use_ema', False) is not False:
                 self.ema_model.restore()
             if not info:
                 logger_output('info', 'saving model: {}'.format(file_name), self.rank)
@@ -388,11 +415,14 @@ class BaseTrainer:
                 temp_epoch = model_info['epoch']
                 if self.kwargs.get('save_checkpoints', None):
                     if not info:
-                        file_name = 'model_{}.pth'.format(str(temp_epoch))
+                        file_name = 'model_{}'.format(str(temp_epoch))
                     else:
-                        file_name = info + '_model_{}.pth'.format(str(temp_epoch))
+                        file_name = info + '_model_{}'.format(str(temp_epoch))
                     save_path = os.path.join(self.kwargs['save_checkpoints'], file_name)
-                    os.remove(save_path)
+                    if os.path.isdir(save_path):
+                        shutil.rmtree(save_path)
+                    else:
+                        os.remove(save_path)
                     if not info:
                         logger_output('info', 'remove model: {}'.format(file_name), self.rank)
                     else:

@@ -10,7 +10,7 @@ import numpy as np
 import torch
 from sklearn.metrics import classification_report
 
-from ..utils.common_utils import ENCODERS, logger_output, write_json
+from ..utils.common_utils import ENCODERS, logger_output
 from .base_model import BaseModel
 
 

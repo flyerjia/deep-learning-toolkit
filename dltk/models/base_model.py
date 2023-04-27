@@ -58,5 +58,11 @@ class BaseModel(nn.Module):
         """
         write_json(file_path, predictions)
 
+    def save(self, save_path, only_save_model_weight=False):
+        if only_save_model_weight:
+            torch.save(self.state_dict(), save_path)
+        else:
+            torch.save(self, save_path)
+
 
 model = BaseModel

@@ -11,7 +11,7 @@ import torch
 
 from ..metrics.metric import compute_f1
 from ..modules.biaffine import Biaffine
-from ..utils.common_utils import (ENCODERS, logger_output, read_jsons)
+from ..utils.common_utils import (ENCODERS, logger_output, read_jsonline)
 from .base_model import BaseModel
 
 
@@ -39,7 +39,7 @@ class REMSIEBiaffineModel(BaseModel):
         self.criterion = torch.nn.CrossEntropyLoss(reduction='mean')
 
         # 读取Schema，用于预测结果过滤
-        schema_info = read_jsons(self.schema_path)
+        schema_info = read_jsonline(self.schema_path)
         self.schema = {}
         for each_schema in schema_info:
             subject_type = each_schema['subject_type']

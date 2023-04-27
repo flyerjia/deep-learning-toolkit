@@ -11,7 +11,7 @@ import torch
 
 from ..metrics.metric import compute_f1
 from ..modules.crf import CRF
-from ..utils.common_utils import ENCODERS, logger_output, write_json
+from ..utils.common_utils import ENCODERS, logger_output
 from .base_model import BaseModel
 
 

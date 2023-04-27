@@ -18,7 +18,7 @@ from scipy.special import expit, softmax
 from torch.optim import AdamW, Adam, SGD
 from transformers import (
     BertModel, BertTokenizer, DebertaV2Model, ErnieModel, DonutProcessor, VisionEncoderDecoderModel,
-    MegatronBertModel, NezhaModel, T5Tokenizer, T5ForConditionalGeneration
+    MegatronBertModel, NezhaModel, T5Tokenizer, T5ForConditionalGeneration, BartTokenizer, BartForConditionalGeneration
 )
 
 logger = logging.getLogger(__name__)
@@ -31,13 +31,15 @@ ENCODERS = {
     'ernie': ErnieModel,
     't5': T5ForConditionalGeneration,
     'donut': VisionEncoderDecoderModel,
+    'bart': BartForConditionalGeneration,
     'lstm': nn.LSTM
 }
 
 TOKENIZERS = {
     'bert_tokenizer': BertTokenizer,
     't5_tokenizer': T5Tokenizer,
-    'donut_processor': DonutProcessor
+    'donut_processor': DonutProcessor,
+    'bart_tokenizer': BartTokenizer
 }
 
 OPTIMIZERS = {

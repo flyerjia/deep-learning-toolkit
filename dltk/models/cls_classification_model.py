@@ -10,7 +10,7 @@ import numpy as np
 import torch
 from sklearn.metrics import classification_report, f1_score
 
-from ..utils.common_utils import ENCODERS, logger_output, write_json
+from ..utils.common_utils import ENCODERS, logger_output, numpy_softmax
 from .base_model import BaseModel
 
 
@@ -48,7 +48,7 @@ class CLSClassificationModel(BaseModel):
             target_data = copy.deepcopy(dataset.data[idx + batch_start_index])
             content = target_data['content']
             idx += 1
-            each_output = np.exp(each_output) / np.sum(np.exp(each_output))
+            each_output = numpy_softmax(each_output)
             pred = np.argmax(each_output).item()
             target_data['pred_label_prob'] = each_output[pred].item()
             pred = dataset.id2label[pred]

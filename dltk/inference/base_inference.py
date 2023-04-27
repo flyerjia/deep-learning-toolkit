@@ -16,6 +16,7 @@ class BaseInference:
         self.device = device
         self.model = model
         self.kwargs = kwargs
+        self.model.eval()
         if self.kwargs.get('use_fp16', False):
             self.model.half()
 

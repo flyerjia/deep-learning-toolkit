@@ -8,21 +8,22 @@ import torch
 
 
 class FGM:
-    def __init__(self, model):
+    def __init__(self, model, epsilon=0.3):
         self.model = model
+        self.epsilon = epsilon
         self.backup = {}
 
-    def attack(self, epsilon=0.3, emb_name='word_embeddings'):
+    def attack(self, emb_name='shared.weight'):
         # emb_name这个参数要换成你模型中embedding的参数名
         for name, param in self.model.named_parameters():
             if param.requires_grad and emb_name in name:
                 self.backup[name] = param.data.clone()
                 norm = torch.norm(param.grad)
                 if norm != 0 and not torch.isnan(norm):
-                    r_at = epsilon * param.grad / norm
+                    r_at = self.epsilon * param.grad / norm
                     param.data.add_(r_at)
 
-    def restore(self, emb_name='word_embeddings'):
+    def restore(self, emb_name='shared.weight'):
         # emb_name这个参数要换成你模型中embedding的参数名
         for name, param in self.model.named_parameters():
             if param.requires_grad and emb_name in name:

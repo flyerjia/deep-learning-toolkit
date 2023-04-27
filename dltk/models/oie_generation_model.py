@@ -9,7 +9,7 @@ import copy
 import torch
 
 from ..metrics.metric import compute_f1
-from ..utils.common_utils import ENCODERS, logger_output, write_jsons
+from ..utils.common_utils import ENCODERS, logger_output
 from .base_model import BaseModel
 
 
@@ -119,9 +119,6 @@ class OIEGenerationModel(BaseModel):
         results = compute_f1(predictions, targets)
         logger_output('info', 'F1:{}'.format(results['F1']))
         return results
-
-    def save_predictions(self, predictions, file_path):
-        write_jsons(file_path, predictions)
 
 
 model = OIEGenerationModel

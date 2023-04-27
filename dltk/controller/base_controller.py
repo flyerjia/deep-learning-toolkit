@@ -22,7 +22,7 @@ from torch.utils.data import DataLoader, RandomSampler, SequentialSampler
 from torch.utils.data.distributed import DistributedSampler
 from transformers import get_scheduler
 
-from ..utils.common_utils import (OPTIMIZERS, get_device, logger_output,
+from ..utils.common_utils import (OPTIMIZERS, get_device, logger_output, read_text,
                                   read_json, read_jsonline, write_yaml)
 
 
@@ -46,6 +46,8 @@ class BaseController:
             data = read_jsonline(data_path)
         elif data_type == 'json':
             data = read_json(data_path)
+        elif data_type == 'text':
+            data = read_text(data_path)
         elif data_type == 'images':
             data = load_dataset(data_path, split='train')
         else:
@@ -282,7 +284,7 @@ class BaseController:
             encoder_modules_parameters = []
             other_modules_parameters = []
             for name, parameter in list(model.named_parameters()):
-                if name.startswith('encoder'):
+                if name.startswith(optimizer_config.get('encoder_name', 'encoder')):
                     encoder_modules_parameters.append((name, parameter))
                 else:
                     other_modules_parameters.append((name, parameter))
