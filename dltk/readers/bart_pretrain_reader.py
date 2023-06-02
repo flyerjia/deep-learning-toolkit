@@ -54,6 +54,7 @@ class BartPretrainReader(BaseReader):
                 if input_tokens[temp_index] == '10':  # 句号不mask
                     break
                 masked_lms.append(temp_index)
+                 
                 covered_indexes.add(temp_index)
 
         mask_labels = [1 if i in masked_lms else 0 for i in range(len(input_tokens))]

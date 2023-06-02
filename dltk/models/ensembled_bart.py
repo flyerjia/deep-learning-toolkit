@@ -10,14 +10,14 @@ import torch
 
 from ..utils.common_utils import ENCODERS, logger_output
 from .base_model import BaseModel
-from ..metrics.evaluate import CiderD
+from ..metrics.ciderd_evaluator import CiderD
 from ..modules.ensembled_bart_for_conditional_generation import EnsembledBartForConditionalGeneration
 
 
 class EnsembledBartPretrainMdoel(BaseModel):
     def __init__(self, **kwargs):
         super(EnsembledBartPretrainMdoel, self).__init__(**kwargs)
-        self.model = EnsembledBartForConditionalGeneration(self.config_path, self.model_path_list, self.num_beams)
+        self.model = EnsembledBartForConditionalGeneration(self.config_path, self.model_path_list, self.model_weight)
 
 
     def forward(self, input_ids, attention_mask, labels=None, phase=None, **kwargs):
@@ -34,32 +34,38 @@ class EnsembledBartPretrainMdoel(BaseModel):
         predictions = []
         index = 0
         device = next(self.model.parameters()).device
-        for input_ids, attention_mask in zip(forward_target['input_ids'], forward_target['attention_mask']):
-            input_ids = torch.from_numpy(input_ids).unsqueeze(0).to(device)
-            attention_mask = torch.from_numpy(attention_mask).unsqueeze(0).to(device)
-            outputs = self.model.generate(input_ids,
-                                          attention_mask=attention_mask,
-                                          max_length=self.max_length,
-                                          early_stopping=True,
-                                          use_cache=True,
-                                          num_beams=self.num_beams,
-                                          length_penalty=self.length_penalty,
-                                          return_dict_in_generate=True
-                                          )
-            each_output = dataset.tokenizer.batch_decode(outputs.sequences, skip_special_tokens=True)[0]
+        input_ids = torch.from_numpy(forward_target['input_ids']).to(device)
+        attention_mask = torch.from_numpy(forward_target['attention_mask']).to(device)
+        outputs = self.model.generate(input_ids,
+                                      attention_mask=attention_mask,
+                                      max_length=self.max_length,
+                                      early_stopping=True,
+                                      use_cache=True,
+                                      num_beams=self.num_beams,
+                                      length_penalty=self.length_penalty,
+                                      return_dict_in_generate=True
+                                      )
+        outputs = dataset.tokenizer.batch_decode(outputs.sequences, skip_special_tokens=True)
+
+        for each_output in outputs:
             each_data = copy.deepcopy(dataset.data[batch_start_index + index])
             infos = each_data.split(',')
-            report_ID = infos[0]
-            description = infos[1]
-            if len(infos) == 3:
-                diagnosis = infos[2]
+            report_ID = infos[0].strip()
+            description = infos[1].strip()
+            if len(infos) >= 3:
+                diagnosis = infos[2].strip()
             else:
                 diagnosis = ''
+            if len(infos) >= 4:
+                clinical = infos[3].strip()
+            else:
+                clinical = ''
             pred_diagnosis = each_output
             predictions.append({
                 'report_ID': report_ID,
                 'description': description,
                 'diagnosis': diagnosis,
+                'clinical': clinical,
                 'pred_diagnosis': pred_diagnosis
             })
             index += 1

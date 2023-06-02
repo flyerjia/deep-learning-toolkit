@@ -57,15 +57,15 @@ class CLSClassificationModel(BaseModel):
                 target_data['pred_label'].append(pred)
                 target_data['pred_label_prob'].append(each_output[pred_id].item())
             # 默认在大于0.5中取概率最高的那个
-            # max_idx = -1
-            # max_prob = -1
-            # for index, label_prob in enumerate(target_data['pred_label_prob']):
-            #     if label_prob >= max_prob:
-            #         max_prob = label_prob
-            #         max_idx = index
-            # if max_idx != -1:
-            #     target_data['pred_label'] = [target_data['pred_label'][max_idx]]
-            #     target_data['pred_label_prob'] = [target_data['pred_label_prob'][max_idx]]
+            max_idx = -1
+            max_prob = -1
+            for index, label_prob in enumerate(target_data['pred_label_prob']):
+                if label_prob >= max_prob:
+                    max_prob = label_prob
+                    max_idx = index
+            if max_idx != -1:
+                target_data['pred_label'] = [target_data['pred_label'][max_idx]]
+                target_data['pred_label_prob'] = [target_data['pred_label_prob'][max_idx]]
             if len(target_data['pred_label']) == 0:
                 target_data['pred_label'].append('其他')
             target_data['pred_label'] = ','.join(target_data['pred_label'])
@@ -77,19 +77,35 @@ class CLSClassificationModel(BaseModel):
         num_all = 0
         num_correct = 0
         for prediction in predictions:
+            # num_all += 1
+            # target_labels = prediction['label'].split(',')
+            # pred_labels = prediction['pred_label'].split(',')
+            # for pred_label in pred_labels:
+            #     label_result_dict.setdefault(pred_label, {'pred_num': 0, 'target_num': 0, 'correct_num': 0})
+            #     label_result_dict[pred_label]['pred_num'] += 1
+            #     if pred_label in target_labels:
+            #         num_correct += 1
+            # for target_label in target_labels:
+            #     label_result_dict.setdefault(target_label, {'pred_num': 0, 'target_num': 0, 'correct_num': 0})
+            #     label_result_dict[target_label]['target_num'] += 1
+            # for temp_label in set(target_labels) & set(pred_labels):
+            #     label_result_dict[temp_label]['correct_num'] += 1
+
+            # 特殊计算方式，若预测最大概率结果正确则整体数据预测正确
             num_all += 1
             target_labels = prediction['label'].split(',')
-            pred_labels = prediction['pred_label'].split(',')
-            for pred_label in pred_labels:
-                label_result_dict.setdefault(pred_label, {'pred_num': 0, 'target_num': 0, 'correct_num': 0})
-                label_result_dict[pred_label]['pred_num'] += 1
-                if pred_label in target_labels:
-                    num_correct += 1
+            pred_label = prediction['pred_label']
+            label_result_dict.setdefault(pred_label, {'pred_num': 0, 'target_num': 0, 'correct_num': 0})
+            label_result_dict[pred_label]['pred_num'] += 1
+            if pred_label in target_labels:
+                label_result_dict[pred_label]['correct_num'] += 1
+                label_result_dict[pred_label]['target_num'] += 1
+                num_correct += 1
+                continue
             for target_label in target_labels:
-                label_result_dict.setdefault(target_label, {'pred_num': 0, 'target_num': 0, 'correct_num': 0})
-                label_result_dict[target_label]['target_num'] += 1
-            for temp_label in set(target_labels) & set(pred_labels):
-                label_result_dict[temp_label]['correct_num'] += 1
+                if target_label in dataset.label2id.keys():
+                    label_result_dict.setdefault(target_label, {'pred_num': 0, 'target_num': 0, 'correct_num': 0})
+                    label_result_dict[target_label]['target_num'] += 1
 
         label_result_dict = {key: value for key, value in sorted(label_result_dict.items(), key=lambda x: x[0])}
         results = {}
