@@ -46,7 +46,6 @@ class CLSClassificationModel(BaseModel):
         idx = 0
         for each_output in forward_output['logits']:
             target_data = copy.deepcopy(dataset.data[idx + batch_start_index])
-            content = target_data['content']
             idx += 1
             each_output = numpy_softmax(each_output)
             pred = np.argmax(each_output).item()

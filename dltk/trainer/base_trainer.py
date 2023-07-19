@@ -166,6 +166,17 @@ class BaseTrainer:
                     logger_output('info', 'saving model: {}'.format(file_name), self.rank)
                 else:
                     logger_output('info', 'cv[{}] saving model: {}'.format(info, file_name), self.rank)
+                # 保存tokenizer
+                if self.ddp_flag:
+                    dataset_reader =  self.model.module.datasets.get('train', {'dataset': None})['dataset']
+                else:
+                    dataset_reader =  self.model.datasets.get('train', {'dataset': None})['dataset']
+                if dataset_reader:
+                    save_tokenizer_files = dataset_reader.save_tokenizer(self.kwargs['save_checkpoints'])
+                    if not info:
+                        logger_output('info', 'saving tokenizer: {}'.format(save_tokenizer_files), self.rank)
+                    else:
+                        logger_output('info', 'cv[{}] saving tokenizer: {}'.format(info, save_tokenizer_files), self.rank)
 
             if self.ddp_flag:
                 dist.barrier()
@@ -201,6 +212,17 @@ class BaseTrainer:
                 logger_output('info', 'saving model: {}'.format(file_name), self.rank)
             else:
                 logger_output('info', 'cv[{}] saving model: {}'.format(info, file_name), self.rank)
+            # 保存tokenizer
+            if self.ddp_flag:
+                dataset_reader =  self.model.module.datasets.get('train', {'dataset': None})['dataset']
+            else:
+                dataset_reader =  self.model.datasets.get('train', {'dataset': None})['dataset']
+            if dataset_reader:
+                save_tokenizer_files = dataset_reader.save_tokenizer(self.kwargs['save_checkpoints'])
+                if not info:
+                    logger_output('info', 'saving tokenizer: {}'.format(save_tokenizer_files), self.rank)
+                else:
+                    logger_output('info', 'cv[{}] saving tokenizer: {}'.format(info, save_tokenizer_files), self.rank)
 
         logger_output('info', 'training done', self.rank)
 
